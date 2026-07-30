@@ -60,7 +60,7 @@ app.use(helmet({
 
 const envOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
-  .map((o) => o.trim())
+  .map((o) => o.trim().replace(/\/+$/, '')) // Strip trailing slashes to prevent mismatches
   .filter(Boolean);
 
 const originOption: cors.CorsOptions['origin'] = envOrigins.length > 0

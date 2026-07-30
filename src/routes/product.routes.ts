@@ -124,7 +124,10 @@ router.get(
 
 router.get('/:slug', async (req: Request, res: Response) => {
   const { slug } = req.params;
-  const product = await Product.findOne({ slug, isActive: true }).populate('category subcategory brand');
+  const query = Types.ObjectId.isValid(slug) 
+    ? { $or: [{ _id: slug }, { slug: slug }], isActive: true }
+    : { slug, isActive: true };
+  const product = await Product.findOne(query).populate('category subcategory brand');
   if (!product) throw new NotFoundError('Product');
 
   res.json({ success: true, message: 'Product fetched', data: product });

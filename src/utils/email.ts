@@ -1,32 +1,26 @@
 import nodemailer from 'nodemailer';
 import { ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, STORE_CONTACT } from '../shared';
 import { logger } from './logger';
-import { Resend } from 'resend';
 
-// ─── Resend API client (HTTPS-based, works on all cloud providers) ───────────
-const getResendClient = (): Resend | null => {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return null;
-  return new Resend(apiKey);
-};
-
-// ─── SMTP fallback (for local dev or non-cloud environments) ─────────────────
 let transporterInstance: nodemailer.Transporter | null = null;
 
 const createTransporter = () => {
   if (transporterInstance) return transporterInstance;
 
   const user = (process.env.EMAIL_USER || '').trim();
+  // Gmail app passwords are often copied with spaces — strip them
   const pass = (process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
-
+  
   let port = parseInt(process.env.EMAIL_PORT || '587', 10);
   let secure = process.env.EMAIL_SECURE === 'true';
 
+  // Cloud providers (Render, AWS, etc.) often block or drop packets on port 587 for anti-spam.
+  // Port 465 (SMTPS) works much more reliably. Auto-correct if using Gmail.
   if ((process.env.EMAIL_HOST || 'smtp.gmail.com') === 'smtp.gmail.com' && port === 587) {
     port = 465;
     secure = true;
   }
-
+  
   transporterInstance = nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port,
@@ -40,15 +34,12 @@ const createTransporter = () => {
     greetingTimeout: 15000,
     tls: { rejectUnauthorized: false }
   });
-
+  
   return transporterInstance;
 };
 
-const canSendEmail = (): boolean => {
-  // Can send if Resend API key is set OR SMTP credentials are set
-  if (process.env.RESEND_API_KEY) return true;
-  return Boolean((process.env.EMAIL_USER || '').trim() && (process.env.EMAIL_PASSWORD || '').trim());
-};
+const canSendEmail = (): boolean =>
+  Boolean((process.env.EMAIL_USER || '').trim() && (process.env.EMAIL_PASSWORD || '').trim());
 
 const baseEmailTemplate = (content: string) => `
 <!DOCTYPE html>
@@ -96,25 +87,9 @@ const sendMail = async (
     logger.warn(`[EMAIL SKIPPED] ${subject} → ${to}`);
     return;
   }
-
+  
   const sendTask = async () => {
-    const resend = getResendClient();
-
-    if (resend) {
-      // ── Primary: Resend API (HTTPS, no port blocking) ──────────────────
-      const fromAddress = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'AYEZA COSMETICS <onboarding@resend.dev>';
-      const { error } = await resend.emails.send({
-        from: fromAddress,
-        to: [to],
-        subject,
-        html: baseEmailTemplate(content),
-      });
-      if (error) {
-        throw new Error(`Resend API error: ${error.message}`);
-      }
-      logger.info(`Email sent via Resend: ${subject} → ${to}`);
-    } else {
-      // ── Fallback: SMTP (for local dev) ──────────────────────────────────
+    try {
       const transporter = createTransporter();
       await transporter.sendMail({
         from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
@@ -122,22 +97,22 @@ const sendMail = async (
         subject,
         html: baseEmailTemplate(content),
       });
-      logger.info(`Email sent via SMTP: ${subject} → ${to}`);
+      logger.info(`Email sent: ${subject} → ${to}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`Email failed: ${subject} → ${to}`, { error: message });
+      if (options?.softFail === false) {
+        throw error;
+      }
     }
   };
 
-  try {
-    if (options?.softFail === false) {
-      await sendTask();
-    } else {
-      sendTask().catch(e => logger.error('Background email error', { error: String(e) }));
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error(`Email failed: ${subject} → ${to}`, { error: message });
-    if (options?.softFail === false) {
-      throw error;
-    }
+  // In production, if softFail is not explicitly false, we don't block the request.
+  if (options?.softFail === false) {
+    await sendTask();
+  } else {
+    // Fire and forget for background emails
+    sendTask().catch(e => logger.error('Unhandled email background task error', { error: String(e) }));
   }
 };
 
@@ -380,19 +355,12 @@ export const sendWelcomeEmail = async (email: string, firstName: string): Promis
 export const testSmtpConnection = async (): Promise<{
   ok: boolean;
   message: string;
-  provider?: string;
   host?: string;
   port?: number;
   user?: string;
 }> => {
-  // Check Resend first
-  const resend = getResendClient();
-  if (resend) {
-    return { ok: true, message: 'Resend API key configured', provider: 'resend' };
-  }
-
   if (!canSendEmail()) {
-    return { ok: false, message: 'No email provider configured (RESEND_API_KEY or EMAIL_USER/EMAIL_PASSWORD)' };
+    return { ok: false, message: 'EMAIL_USER / EMAIL_PASSWORD not configured' };
   }
   const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
   const port = Number(process.env.EMAIL_PORT || 587);
@@ -400,12 +368,11 @@ export const testSmtpConnection = async (): Promise<{
   try {
     const transporter = createTransporter();
     await transporter.verify();
-    return { ok: true, message: 'SMTP connection verified', provider: 'smtp', host, port, user };
+    return { ok: true, message: 'SMTP connection verified', host, port, user };
   } catch (error) {
     return {
       ok: false,
       message: error instanceof Error ? error.message : 'SMTP verify failed',
-      provider: 'smtp',
       host,
       port,
       user,

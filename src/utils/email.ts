@@ -2,16 +2,30 @@ import nodemailer from 'nodemailer';
 import { ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, STORE_CONTACT } from '../shared';
 import { logger } from './logger';
 
+let transporterInstance: nodemailer.Transporter | null = null;
+
 const createTransporter = () => {
+  if (transporterInstance) return transporterInstance;
+
   const user = (process.env.EMAIL_USER || '').trim();
   // Gmail app passwords are often copied with spaces — strip them
   const pass = (process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
-  return nodemailer.createTransport({
+  
+  transporterInstance = nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.EMAIL_PORT || '587', 10),
     secure: process.env.EMAIL_SECURE === 'true',
     auth: { user, pass },
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100,
+    socketTimeout: 15000,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    tls: { rejectUnauthorized: false }
   });
+  
+  return transporterInstance;
 };
 
 const canSendEmail = (): boolean =>
@@ -63,22 +77,32 @@ const sendMail = async (
     logger.warn(`[EMAIL SKIPPED] ${subject} → ${to}`);
     return;
   }
-  try {
-    const transporter = createTransporter();
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-      to,
-      subject,
-      html: baseEmailTemplate(content),
-    });
-    logger.info(`Email sent: ${subject} → ${to}`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error(`Email failed: ${subject} → ${to}`, { error: message });
-    // For OTP / auth verification flows we MUST not fake success.
-    if (options?.softFail === false) {
-      throw error;
+  
+  const sendTask = async () => {
+    try {
+      const transporter = createTransporter();
+      await transporter.sendMail({
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        to,
+        subject,
+        html: baseEmailTemplate(content),
+      });
+      logger.info(`Email sent: ${subject} → ${to}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`Email failed: ${subject} → ${to}`, { error: message });
+      if (options?.softFail === false) {
+        throw error;
+      }
     }
+  };
+
+  // In production, if softFail is not explicitly false, we don't block the request.
+  if (options?.softFail === false) {
+    await sendTask();
+  } else {
+    // Fire and forget for background emails
+    sendTask().catch(e => logger.error('Unhandled email background task error', { error: String(e) }));
   }
 };
 

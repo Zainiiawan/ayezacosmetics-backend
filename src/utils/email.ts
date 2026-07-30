@@ -11,20 +11,8 @@ const createTransporter = () => {
   // Gmail app passwords are often copied with spaces — strip them
   const pass = (process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
   
-  let port = parseInt(process.env.EMAIL_PORT || '587', 10);
-  let secure = process.env.EMAIL_SECURE === 'true';
-
-  // Cloud providers (Render, AWS, etc.) often block or drop packets on port 587 for anti-spam.
-  // Port 465 (SMTPS) works much more reliably. Auto-correct if using Gmail.
-  if ((process.env.EMAIL_HOST || 'smtp.gmail.com') === 'smtp.gmail.com' && port === 587) {
-    port = 465;
-    secure = true;
-  }
-  
   transporterInstance = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port,
-    secure,
+    service: 'gmail',
     auth: { user, pass },
     pool: true,
     maxConnections: 5,

@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import { Types } from 'mongoose';
-import { authenticate, adminOnly, requireEmailVerification } from '../middleware/auth';
+import { authenticate, optionalAuthenticate, adminOnly, requireEmailVerification } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { BadRequestError, NotFoundError, ForbiddenError } from '../utils/errors';
 import { Cart } from '../models/Cart';
@@ -10,13 +10,13 @@ import { Order } from '../models/Order';
 import { Product } from '../models/Product';
 import { User } from '../models/User';
 import {
-  FREE_SHIPPING_THRESHOLD,
-  SHIPPING_COST,
   updateOrderStatusSchema,
   ORDER_STATUS_LABELS,
 } from '../shared';
-import { sendOrderConfirmationEmail, sendOrderStatusEmail } from '../utils/email';
+import { sendOrderConfirmationEmail, sendOrderStatusEmail, sendNewOrderNotificationEmail } from '../utils/email';
 import { createNotification, notifyAdmins } from '../utils/notifications';
+import { Settings } from '../models/Settings';
+import { ShippingRate } from '../models/ShippingRate';
 
 const router = express.Router();
 
@@ -31,40 +31,115 @@ const shippingAddressSchema = z.object({
   country: z.string().min(1),
 });
 
+const guestInfoSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  email: z.string().email(),
+  phone: z.string().min(1),
+});
+
 const checkoutSchema = z.object({
   shippingAddress: shippingAddressSchema,
   billingAddress: shippingAddressSchema.optional(),
   paymentMethod: z.enum(['cod', 'jazzcash', 'easypaisa']),
   couponCode: z.string().min(1).optional(),
   notes: z.string().max(500).optional(),
+  guestInfo: guestInfoSchema.optional(),
+  items: z.array(z.object({
+    productId: z.string(),
+    variant: z.string().optional(),
+    quantity: z.number().min(1),
+  })).optional(),
 });
 
-router.post('/', authenticate, requireEmailVerification, validate(checkoutSchema), async (req: Request, res: Response) => {
-  const userId = req.user!._id;
-  const cart = await Cart.findOne({ user: userId });
-  if (!cart || (cart.items ?? []).length === 0) throw new BadRequestError('Cart is empty');
+router.post('/', optionalAuthenticate, validate(checkoutSchema), async (req: Request, res: Response) => {
+  const userId = req.user?._id;
+  const isGuest = !userId;
 
-  const { shippingAddress, billingAddress, paymentMethod, couponCode: couponCodeFromBody, notes } = req.body;
-  const couponCode = couponCodeFromBody ?? cart.couponCode;
-  const subtotal = cart.subtotal ?? 0;
+  const { shippingAddress, billingAddress, paymentMethod, couponCode: couponCodeFromBody, notes, guestInfo, items: itemsFromBody } = req.body;
 
-  let shippingCost = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
+  if (isGuest && !guestInfo) {
+    throw new BadRequestError('Guest info (name, email, phone) is required for guest checkout');
+  }
+
+  let finalItems: any[] = [];
+  let subtotal = 0;
+  let cart: any = null;
+
+  if (itemsFromBody && itemsFromBody.length > 0) {
+    // Buy Now or Guest Checkout with direct items
+    for (const item of itemsFromBody) {
+      const product = await Product.findById(item.productId);
+      if (!product || !product.isActive) throw new NotFoundError(`Product ${item.productId} not found`);
+
+      const variant = item.variant
+        ? product.variants.find((v: any) => v.sku === item.variant || v.value === item.variant)
+        : product.variants.find((v: any) => v.sku === product.sku) ?? null;
+
+      const price = variant ? variant.price : product.basePrice;
+      const total = price * item.quantity;
+      subtotal += total;
+
+      finalItems.push({
+        product: product._id,
+        variant: item.variant,
+        name: product.name,
+        image: variant && variant.images && variant.images.length > 0 ? variant.images[0].url : (product.images[0]?.url || ''),
+        price,
+        quantity: item.quantity,
+        total,
+        sku: variant ? variant.sku : product.sku,
+      });
+    }
+  } else {
+    // Normal Cart Checkout (must be logged in)
+    if (!userId) throw new BadRequestError('Must provide items for guest checkout');
+    cart = await Cart.findOne({ user: userId });
+    if (!cart || (cart.items ?? []).length === 0) throw new BadRequestError('Cart is empty');
+    finalItems = cart.items ?? [];
+    subtotal = cart.subtotal ?? 0;
+  }
+
+  if (finalItems.length === 0) throw new BadRequestError('No items to checkout');
+
+  const couponCode = couponCodeFromBody ?? (cart ? cart.couponCode : undefined);
+
+  // Dynamic Shipping Calculation
+  let settings = await Settings.findOne();
+  if (!settings) {
+    settings = await Settings.create({});
+  }
+
+  let shippingCost = settings.defaultShippingCost;
+  const city = shippingAddress.city.trim().toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
+  
+  const cityRate = await ShippingRate.findOne({ city, isActive: true });
+  if (cityRate) {
+    shippingCost = cityRate.cost;
+  }
+
+  if (subtotal >= settings.freeShippingThreshold) {
+    shippingCost = 0;
+  }
   let couponDiscount = 0;
+  let coupon: any = null;
 
   if (couponCode) {
-    const coupon = await Coupon.findOne({ code: String(couponCode).toUpperCase() });
+    coupon = await Coupon.findOne({ code: String(couponCode).toUpperCase() });
     if (!coupon) throw new NotFoundError('Coupon');
     if (!coupon.isValid()) throw new ForbiddenError('Coupon is not valid');
 
     if (coupon.perUserLimit && coupon.usedBy?.length) {
-      const alreadyUsed = (coupon.usedBy ?? []).some((u) => String(u) === String(userId));
-      if (alreadyUsed) throw new ForbiddenError('Coupon usage limit reached for this user');
+      if (userId) {
+        const alreadyUsed = (coupon.usedBy ?? []).some((u: any) => String(u) === String(userId));
+        if (alreadyUsed) throw new ForbiddenError('Coupon usage limit reached for this user');
+      }
     }
 
     if (coupon.type === 'free_shipping') {
       shippingCost = 0;
     } else {
-      const cartItemsForDiscount = (cart.items ?? []).map((i: any) => ({
+      const cartItemsForDiscount = finalItems.map((i: any) => ({
         productId: new Types.ObjectId(i.product),
         quantity: i.quantity,
         unitPrice: i.price,
@@ -72,9 +147,9 @@ router.post('/', authenticate, requireEmailVerification, validate(checkoutSchema
       let eligibleCartTotal = subtotal;
       let eligibleCartItems = cartItemsForDiscount;
       if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
-        const allowed = new Set(coupon.applicableProducts.map((id) => String(id)));
-        eligibleCartItems = cartItemsForDiscount.filter((i) => allowed.has(i.productId.toString()));
-        eligibleCartTotal = (cart.items ?? [])
+        const allowed = new Set(coupon.applicableProducts.map((id: any) => String(id)));
+        eligibleCartItems = cartItemsForDiscount.filter((i: any) => allowed.has(i.productId.toString()));
+        eligibleCartTotal = finalItems
           .filter((ci: any) => allowed.has(String(ci.product)))
           .reduce((sum: number, ci: any) => sum + ci.total, 0);
       }
@@ -94,7 +169,11 @@ router.post('/', authenticate, requireEmailVerification, validate(checkoutSchema
 
   const order = await Order.create({
     user: userId,
-    items: (cart.items ?? []).map((i: any) => ({
+    customerType: isGuest ? 'guest' : 'registered',
+    customerName: isGuest ? `${guestInfo?.firstName} ${guestInfo?.lastName}` : `${req.user?.firstName} ${req.user?.lastName}`,
+    customerEmail: isGuest ? guestInfo?.email : req.user?.email,
+    customerPhone: isGuest ? guestInfo?.phone : shippingAddress.phone,
+    items: finalItems.map((i: any) => ({
       product: new Types.ObjectId(i.product),
       variant: i.variant,
       name: i.name,
@@ -157,39 +236,45 @@ router.post('/', authenticate, requireEmailVerification, validate(checkoutSchema
     await product.save();
   }
 
-  if (couponCode) {
-    const coupon = await Coupon.findOne({ code: String(couponCode).toUpperCase() });
-    if (coupon) {
-      coupon.usageCount = (coupon.usageCount ?? 0) + 1;
+  if (couponCode && coupon) {
+    coupon.usageCount = (coupon.usageCount ?? 0) + 1;
+    if (userId) {
       coupon.usedBy = [...(coupon.usedBy ?? []), new Types.ObjectId(String(userId))];
-      await coupon.save();
     }
+    await coupon.save();
   }
 
-  cart.items = [];
-  cart.subtotal = 0;
-  cart.itemCount = 0;
-  cart.couponCode = undefined;
-  cart.couponDiscount = 0;
-  await cart.save();
-
-  const user = await User.findById(userId);
-  if (user) {
-    try {
-      await sendOrderConfirmationEmail(user.email, user.firstName, order);
-    } catch {
-      // never fail checkout on email
-    }
+  if (cart) {
+    cart.items = [];
+    cart.subtotal = 0;
+    cart.itemCount = 0;
+    cart.couponCode = undefined;
+    cart.couponDiscount = 0;
+    await cart.save();
   }
 
-  await createNotification({
-    userId: String(userId),
-    type: 'order_placed',
-    title: 'Order Placed',
-    message: `Your order ${order.orderNumber} has been placed successfully.`,
-    orderId: order._id,
-    link: `/account/orders/${order._id}`,
-  });
+  try {
+    await sendOrderConfirmationEmail(order.customerEmail!, order.customerName!.split(' ')[0], order);
+  } catch {
+    // never fail checkout on email
+  }
+
+  if (userId) {
+    await createNotification({
+      userId: String(userId),
+      type: 'order_placed',
+      title: 'Order Placed',
+      message: `Your order ${order.orderNumber} has been placed successfully.`,
+      orderId: order._id,
+      link: `/account/orders/${order._id}`,
+    });
+  }
+
+  try {
+    await sendNewOrderNotificationEmail('ayezacosmtics@gmail.com', order);
+  } catch {
+    // ignore
+  }
 
   void notifyAdmins({
     type: 'general',

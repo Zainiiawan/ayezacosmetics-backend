@@ -24,7 +24,11 @@ export interface IPaymentProof {
 
 export interface IOrderDocument extends Document {
   orderNumber: string;
-  user: mongoose.Types.ObjectId;
+  user?: mongoose.Types.ObjectId;
+  customerType: 'registered' | 'guest';
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
   items: Array<{
     product: mongoose.Types.ObjectId;
     variant?: string;
@@ -139,7 +143,11 @@ const paymentProofSchema = new Schema(
 const orderSchema = new Schema<IOrderDocument>(
   {
     orderNumber: { type: String, unique: true, index: true },
-    user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    user: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+    customerType: { type: String, enum: ['registered', 'guest'], default: 'registered' },
+    customerName: String,
+    customerEmail: String,
+    customerPhone: String,
     items: [orderItemSchema],
     shippingAddress: { type: addressSchema, required: true },
     billingAddress: addressSchema,

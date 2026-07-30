@@ -63,20 +63,18 @@ router.post('/', authenticate, requireEmailVerification, validate(createReviewSc
     status: { $nin: ['cancelled', 'refunded', 'returned'] },
   });
 
-  if (!hasPurchase) throw new ForbiddenError('You can only review products you have purchased');
-
   const existing = await Review.findOne({ product, user: userId });
   if (existing) throw new BadRequestError('You have already reviewed this product');
 
   const created = await Review.create({
     product: new Types.ObjectId(product),
     user: new Types.ObjectId(String(userId)),
-    order: hasPurchase._id,
+    order: hasPurchase ? hasPurchase._id : undefined,
     rating,
     title,
     body,
     images,
-    isVerifiedPurchase: true,
+    isVerifiedPurchase: !!hasPurchase,
     isApproved: false,
   });
 

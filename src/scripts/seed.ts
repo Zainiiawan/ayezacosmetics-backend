@@ -41,8 +41,15 @@ async function seed() {
   await mongoose.connect(uri);
   console.log('Connected to MongoDB');
 
-  await mongoose.connection.dropDatabase();
-  console.log('Dropped existing database');
+  await Promise.all([
+    User.deleteMany({}),
+    Brand.deleteMany({}),
+    Category.deleteMany({}),
+    Subcategory.deleteMany({}),
+    Product.deleteMany({}),
+    Coupon.deleteMany({})
+  ]);
+  console.log('Cleared existing data in collections');
 
   const admin = await User.create({
     email: process.env.ADMIN_EMAIL || 'admin@ayezacosmetics.com',

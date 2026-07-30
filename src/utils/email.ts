@@ -91,7 +91,7 @@ const sendMail = async (
 
     if (resend) {
       // ── Primary: Resend API (HTTPS, no port blocking) ──────────────────
-      const fromAddress = process.env.RESEND_FROM || 'AYEZA COSMETICS <onboarding@resend.dev>';
+      const fromAddress = process.env.RESEND_FROM || 'AYEZA COSMETICS <noreply@ayezacosmetics.store>';
       const { error } = await resend.emails.send({
         from: fromAddress,
         to: [to],

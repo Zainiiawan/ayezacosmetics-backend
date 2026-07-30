@@ -1,0 +1,347 @@
+import nodemailer from 'nodemailer';
+import { ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, STORE_CONTACT } from '../shared';
+import { logger } from './logger';
+
+const createTransporter = () => {
+  const user = (process.env.EMAIL_USER || '').trim();
+  // Gmail app passwords are often copied with spaces — strip them
+  const pass = (process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT || '587', 10),
+    secure: process.env.EMAIL_SECURE === 'true',
+    auth: { user, pass },
+  });
+};
+
+const canSendEmail = (): boolean =>
+  Boolean((process.env.EMAIL_USER || '').trim() && (process.env.EMAIL_PASSWORD || '').trim());
+
+const baseEmailTemplate = (content: string) => `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AYEZA COSMETICS</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%); padding: 40px 40px 30px; text-align: center; }
+    .header h1 { color: #C9956A; font-family: Georgia, serif; font-size: 28px; margin: 0; letter-spacing: 3px; }
+    .header p { color: #A8A8A8; font-size: 12px; margin: 8px 0 0; letter-spacing: 2px; text-transform: uppercase; }
+    .content { padding: 40px; }
+    .content h2 { color: #0a0a0a; font-size: 22px; margin-bottom: 16px; }
+    .content p { color: #555; line-height: 1.6; margin-bottom: 16px; }
+    .btn { display: inline-block; background: #C9956A; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 15px; margin: 16px 0; }
+    .footer { background: #f9f9f9; padding: 24px 40px; text-align: center; border-top: 1px solid #eee; }
+    .footer p { color: #999; font-size: 13px; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>AYEZA COSMETICS</h1>
+      <p>Luxury Beauty, Redefined</p>
+    </div>
+    <div class="content">${content}</div>
+    <div class="footer">
+      <p>© ${new Date().getFullYear()} AYEZA COSMETICS. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+`;
+
+const sendMail = async (
+  to: string,
+  subject: string,
+  content: string,
+  options?: { softFail?: boolean }
+): Promise<void> => {
+  if (!canSendEmail()) {
+    logger.warn(`[EMAIL SKIPPED] ${subject} → ${to}`);
+    return;
+  }
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      to,
+      subject,
+      html: baseEmailTemplate(content),
+    });
+    logger.info(`Email sent: ${subject} → ${to}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(`Email failed: ${subject} → ${to}`, { error: message });
+    // For OTP / auth verification flows we MUST not fake success.
+    if (options?.softFail === false) {
+      throw error;
+    }
+  }
+};
+
+export const sendVerificationEmail = async (email: string, firstName: string, token: string): Promise<void> => {
+  const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify-email?token=${token}`;
+  await sendMail(
+    email,
+    'Welcome to AYEZA COSMETICS — Verify Your Email',
+    `
+      <h2>Welcome, ${firstName}!</h2>
+      <p>Please verify your email to activate your account.</p>
+      <p style="text-align:center;"><a href="${verifyUrl}" class="btn">Verify Email</a></p>
+      <p>This link expires in 24 hours.</p>
+      <p><small>${verifyUrl}</small></p>
+    `,
+    { softFail: false }
+  );
+};
+
+export const sendOtpEmail = async (email: string, firstName: string, otp: string): Promise<void> => {
+  await sendMail(
+    email,
+    'AYEZA COSMETICS — Your Verification Code',
+    `
+      <h2>Verify Your Email</h2>
+      <p>Hi ${firstName}, your verification code is:</p>
+      <div style="text-align:center; margin: 24px 0;">
+        <span style="display:inline-block; font-size:36px; font-weight:700; letter-spacing:12px; color:#0a0a0a; background:#f5f0ed; padding:16px 32px; border-radius:12px; border:2px solid #C9956A;">${otp}</span>
+      </div>
+      <p>This code expires in <strong>10 minutes</strong>.</p>
+      <p style="color:#999; font-size:13px;">If you didn't create an account, you can safely ignore this email.</p>
+    `,
+    { softFail: false }
+  );
+};
+
+export const sendPasswordResetEmail = async (email: string, firstName: string, token: string): Promise<void> => {
+  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`;
+  await sendMail(
+    email,
+    'AYEZA COSMETICS — Password Reset',
+    `
+      <h2>Reset Your Password</h2>
+      <p>Hi ${firstName}, we received a password reset request.</p>
+      <p style="text-align:center;"><a href="${resetUrl}" class="btn">Reset Password</a></p>
+      <p>This link expires in 1 hour.</p>
+      <p><small>${resetUrl}</small></p>
+    `,
+    { softFail: false }
+  );
+};
+
+const formatPkr = (amount: number) => `Rs.${Number(amount).toLocaleString('en-PK')}`;
+
+const orderItemsTable = (items: Array<{ name: string; quantity: number; total: number; price: number }>) => `
+  <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+    <thead>
+      <tr style="background:#f9f9f9;">
+        <th style="text-align:left;padding:10px;border-bottom:1px solid #eee;">Product</th>
+        <th style="text-align:center;padding:10px;border-bottom:1px solid #eee;">Qty</th>
+        <th style="text-align:right;padding:10px;border-bottom:1px solid #eee;">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${items
+        .map(
+          (item) => `
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #f0f0f0;">${item.name}</td>
+          <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:center;">${item.quantity}</td>
+          <td style="padding:10px;border-bottom:1px solid #f0f0f0;text-align:right;">${formatPkr(item.total)}</td>
+        </tr>`
+        )
+        .join('')}
+    </tbody>
+  </table>
+`;
+
+export const sendOrderConfirmationEmail = async (
+  email: string,
+  firstName: string,
+  order: {
+    _id: { toString(): string } | string;
+    orderNumber: string;
+    items: Array<{ name: string; quantity: number; total: number; price: number }>;
+    shippingAddress: {
+      firstName: string;
+      lastName: string;
+      phone: string;
+      street: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+    };
+    paymentMethod: string;
+    subtotal: number;
+    shippingCost: number;
+    discount: number;
+    total: number;
+    status: string;
+    estimatedDelivery?: Date;
+    createdAt?: Date;
+  }
+): Promise<void> => {
+  const orderId = typeof order._id === 'string' ? order._id : order._id.toString();
+  const trackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/track-order?orderNumber=${encodeURIComponent(order.orderNumber)}&email=${encodeURIComponent(email)}`;
+  const statusLabel = ORDER_STATUS_LABELS[order.status] || order.status;
+  const paymentLabel = PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod;
+  const addr = order.shippingAddress;
+  const estDelivery = order.estimatedDelivery
+    ? new Date(order.estimatedDelivery).toLocaleDateString('en-PK', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    : '3–7 business days';
+
+  await sendMail(
+    email,
+    `AYEZA COSMETICS — Order Confirmed #${order.orderNumber}`,
+    `
+      <h2>Thank you, ${firstName}!</h2>
+      <p>Your order has been placed successfully. Here are your order details:</p>
+
+      <div style="background:#faf7f5;border:1px solid #e8ddd6;border-radius:8px;padding:16px;margin:20px 0;">
+        <p style="margin:0 0 8px;"><strong>Order Number:</strong> ${order.orderNumber}</p>
+        <p style="margin:0 0 8px;"><strong>Date:</strong> ${order.createdAt ? new Date(order.createdAt).toLocaleString('en-PK') : new Date().toLocaleString('en-PK')}</p>
+        <p style="margin:0 0 8px;"><strong>Status:</strong> ${statusLabel}</p>
+        <p style="margin:0 0 8px;"><strong>Payment:</strong> ${paymentLabel}</p>
+        <p style="margin:0;"><strong>Estimated Delivery:</strong> ${estDelivery}</p>
+      </div>
+
+      <h3 style="margin-top:24px;">Order Summary</h3>
+      ${orderItemsTable(order.items)}
+      <p><strong>Subtotal:</strong> ${formatPkr(order.subtotal)}</p>
+      <p><strong>Shipping:</strong> ${order.shippingCost === 0 ? 'FREE' : formatPkr(order.shippingCost)}</p>
+      ${order.discount > 0 ? `<p><strong>Discount:</strong> -${formatPkr(order.discount)}</p>` : ''}
+      <p style="font-size:18px;"><strong>Total:</strong> ${formatPkr(order.total)}</p>
+
+      <h3 style="margin-top:24px;">Shipping Address</h3>
+      <p>
+        ${addr.firstName} ${addr.lastName}<br/>
+        ${addr.street}<br/>
+        ${addr.city}, ${addr.state} ${addr.postalCode}<br/>
+        ${addr.country}<br/>
+        Phone: ${addr.phone}
+      </p>
+
+      <p style="text-align:center;margin:32px 0;">
+        <a href="${trackUrl}" class="btn" style="font-size:16px;padding:16px 40px;">TRACK MY ORDER</a>
+      </p>
+
+      <p style="color:#666;font-size:13px;text-align:center;">
+        Need help? Contact us at ${STORE_CONTACT.phone} or ${STORE_CONTACT.email}
+      </p>
+    `
+  );
+};
+
+export const sendPaymentStatusEmail = async (
+  email: string,
+  firstName: string,
+  orderNumber: string,
+  orderId: string,
+  approved: boolean,
+  reason?: string
+): Promise<void> => {
+  const orderUrl = `${process.env.NEXT_PUBLIC_APP_URL}/account/orders/${orderId}`;
+  await sendMail(
+    email,
+    approved
+      ? `AYEZA COSMETICS — Payment Approved #${orderNumber}`
+      : `AYEZA COSMETICS — Payment Rejected #${orderNumber}`,
+    approved
+      ? `
+        <h2>Payment Approved</h2>
+        <p>Hi ${firstName}, your payment for order <strong>${orderNumber}</strong> has been approved. We are preparing your order.</p>
+        <p style="text-align:center;"><a href="${orderUrl}" class="btn">View Order</a></p>
+      `
+      : `
+        <h2>Payment Rejected</h2>
+        <p>Hi ${firstName}, your payment for order <strong>${orderNumber}</strong> was rejected.</p>
+        <p>${reason ? `Reason: ${reason}` : 'Please upload a new payment proof with a valid transaction ID and screenshot.'}</p>
+        <p style="text-align:center;"><a href="${orderUrl}/pay" class="btn">Resubmit Payment</a></p>
+      `
+  );
+};
+
+export const sendOrderStatusEmail = async (
+  email: string,
+  firstName: string,
+  orderNumber: string,
+  orderId: string,
+  statusLabel: string,
+  order?: {
+    trackingNumber?: string;
+    courierName?: string;
+    trackingUrl?: string;
+    estimatedDelivery?: Date;
+  }
+): Promise<void> => {
+  const trackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/track-order?orderNumber=${encodeURIComponent(orderNumber)}&email=${encodeURIComponent(email)}`;
+  const trackingBlock = order?.trackingNumber
+    ? `
+      <div style="background:#faf7f5;border:1px solid #e8ddd6;border-radius:8px;padding:16px;margin:16px 0;">
+        <p style="margin:0 0 8px;"><strong>Tracking Number:</strong> ${order.trackingNumber}</p>
+        ${order.courierName ? `<p style="margin:0 0 8px;"><strong>Courier:</strong> ${order.courierName}</p>` : ''}
+        ${order.estimatedDelivery ? `<p style="margin:0 0 8px;"><strong>Estimated Delivery:</strong> ${new Date(order.estimatedDelivery).toLocaleDateString('en-PK')}</p>` : ''}
+        ${order.trackingUrl ? `<p style="margin:0;"><a href="${order.trackingUrl}">Track with courier →</a></p>` : ''}
+      </div>
+    `
+    : '';
+
+  await sendMail(
+    email,
+    `AYEZA COSMETICS — ${statusLabel} #${orderNumber}`,
+    `
+      <h2>${statusLabel}</h2>
+      <p>Hi ${firstName}, your order <strong>${orderNumber}</strong> is now: <strong>${statusLabel}</strong>.</p>
+      ${trackingBlock}
+      <p style="text-align:center;margin:32px 0;">
+        <a href="${trackUrl}" class="btn" style="font-size:16px;padding:16px 40px;">TRACK MY ORDER</a>
+      </p>
+      <p style="color:#666;font-size:13px;text-align:center;">
+        Support: ${STORE_CONTACT.phone} · ${STORE_CONTACT.email}
+      </p>
+    `
+  );
+};
+
+export const sendWelcomeEmail = async (email: string, firstName: string): Promise<void> => {
+  await sendMail(
+    email,
+    'Welcome to AYEZA COSMETICS',
+    `
+      <h2>Welcome, ${firstName}!</h2>
+      <p>Your email is verified. Explore our luxury beauty collection.</p>
+      <p style="text-align:center;"><a href="${process.env.NEXT_PUBLIC_APP_URL}/shop" class="btn">Start Shopping</a></p>
+    `
+  );
+};
+
+export const testSmtpConnection = async (): Promise<{
+  ok: boolean;
+  message: string;
+  host?: string;
+  port?: number;
+  user?: string;
+}> => {
+  if (!canSendEmail()) {
+    return { ok: false, message: 'EMAIL_USER / EMAIL_PASSWORD not configured' };
+  }
+  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+  const port = Number(process.env.EMAIL_PORT || 587);
+  const user = (process.env.EMAIL_USER || '').trim();
+  try {
+    const transporter = createTransporter();
+    await transporter.verify();
+    return { ok: true, message: 'SMTP connection verified', host, port, user };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : 'SMTP verify failed',
+      host,
+      port,
+      user,
+    };
+  }
+};

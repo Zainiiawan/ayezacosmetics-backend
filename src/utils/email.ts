@@ -49,31 +49,37 @@ const baseEmailTemplate = (content: string) => `
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
     .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-    .header { background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%); padding: 40px 40px 30px; text-align: center; }
-    .header h1 { color: #C9956A; font-family: Georgia, serif; font-size: 28px; margin: 0; letter-spacing: 3px; }
-    .header p { color: #A8A8A8; font-size: 12px; margin: 8px 0 0; letter-spacing: 2px; text-transform: uppercase; }
+    .header { background: linear-gradient(135deg, #1a0a0f 0%, #2d1520 100%); padding: 32px 40px; text-align: center; }
+    .header img { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 16px; border: 3px solid #C9956A; }
+    .header h1 { color: #C9956A; font-family: Georgia, serif; font-size: 26px; margin: 0 0 4px; letter-spacing: 4px; text-transform: uppercase; }
+    .header p { color: #c8a0a0; font-size: 11px; margin: 0; letter-spacing: 3px; text-transform: uppercase; }
     .content { padding: 40px; }
     .content h2 { color: #0a0a0a; font-size: 22px; margin-bottom: 16px; }
     .content p { color: #555; line-height: 1.6; margin-bottom: 16px; }
-    .btn { display: inline-block; background: #C9956A; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 15px; margin: 16px 0; }
-    .footer { background: #f9f9f9; padding: 24px 40px; text-align: center; border-top: 1px solid #eee; }
-    .footer p { color: #999; font-size: 13px; margin: 0; }
+    .btn { display: inline-block; background: linear-gradient(135deg, #C9956A, #b8845a); color: #fff !important; text-decoration: none; padding: 14px 36px; border-radius: 6px; font-weight: 600; font-size: 15px; margin: 16px 0; letter-spacing: 0.5px; }
+    .divider { height: 1px; background: linear-gradient(90deg, transparent, #C9956A55, transparent); margin: 24px 0; }
+    .footer { background: #faf7f5; padding: 24px 40px; text-align: center; border-top: 1px solid #f0e8e0; }
+    .footer p { color: #999; font-size: 12px; margin: 4px 0; }
+    .footer a { color: #C9956A; text-decoration: none; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
+      <img src="https://ayezacosmetics.store/logo.png" alt="AYEZA COSMETICS" />
       <h1>AYEZA COSMETICS</h1>
       <p>Luxury Beauty, Redefined</p>
     </div>
     <div class="content">${content}</div>
     <div class="footer">
       <p>© ${new Date().getFullYear()} AYEZA COSMETICS. All rights reserved.</p>
+      <p><a href="https://ayezacosmetics.store">ayezacosmetics.store</a></p>
     </div>
   </div>
 </body>
 </html>
 `;
+
 
 const sendMail = async (
   to: string,

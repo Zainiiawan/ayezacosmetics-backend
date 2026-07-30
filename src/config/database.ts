@@ -12,7 +12,7 @@ function getMongoUri(): string {
 
   if (!uri) {
     throw new Error(
-      'MONGODB_URI is not defined. Set it in Railway Variables or local .env'
+      'MONGODB_URI is not defined. Set it in Render Environment Variables or local .env'
     );
   }
 
@@ -29,7 +29,7 @@ function getMongoUri(): string {
 
   if (process.env.NODE_ENV === 'production' && isLocalhost) {
     throw new Error(
-      'MONGODB_URI points to localhost — use MongoDB Atlas on Railway/production'
+      'MONGODB_URI points to localhost — use MongoDB Atlas on Render/production'
     );
   }
 
@@ -84,7 +84,7 @@ export const connectDatabase = async (retries = MAX_RETRIES): Promise<void> => {
       serverSelectionTimeoutMS: 30000,
       connectTimeoutMS: 30000,
       socketTimeoutMS: 45000,
-      // Prefer IPv4 — avoids some Railway/DNS SRV resolution failures
+      // Prefer IPv4 — avoids some DNS SRV resolution failures
       family: 4,
     });
 
@@ -107,7 +107,7 @@ export const connectDatabase = async (retries = MAX_RETRIES): Promise<void> => {
     const isAuthError = /auth|Authentication failed|bad auth/i.test(message);
     if (isAuthError) {
       logger.error(
-        '✗ MongoDB authentication failed — check MONGODB_URI username/password in Railway Variables'
+        '✗ MongoDB authentication failed — check MONGODB_URI username/password in Render Environment Variables'
       );
       throw new Error(
         `Unable to connect to MongoDB (${redactMongoUri(uri)}): ${message}`

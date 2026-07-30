@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 
 /**
  * Load env before any other app modules run.
- * Railway injects process.env — dotenv must NOT override those.
+ * Render injects process.env — dotenv must NOT override those.
  * Locally: .env lives at backend/ root.
  */
 const candidates = [
@@ -33,6 +33,6 @@ if (process.env.MONGODB_URI) {
   );
 } else if (process.env.NODE_ENV !== 'test') {
   process.stderr.write(
-    '[env] WARNING: MONGODB_URI is not set. Set it in Railway Variables or local .env\n'
+    '[env] WARNING: MONGODB_URI is not set. Set it in Render Environment Variables or local .env\n'
   );
 }

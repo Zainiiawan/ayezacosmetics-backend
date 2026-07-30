@@ -47,7 +47,7 @@ app.use(helmet({
 // CORS — Production-ready configuration.
 //
 // Strategy:
-//   • In production (CORS_ORIGIN env set on Railway):
+//   • In production (CORS_ORIGIN env set on Render):
 //       origin is an allowlist function → only the Netlify domain is allowed.
 //       Access-Control-Allow-Origin will be the EXACT incoming origin if it
 //       matches the list, which satisfies browsers when credentials:true.
@@ -157,7 +157,7 @@ const PORT = parseInt(process.env.PORT || '5001', 10);
 
 /**
  * 1) Connect MongoDB (required)
- * 2) Only then bind Express — Railway /health works after this
+ * 2) Only then bind Express — Render /health works after this
  */
 const startServer = async (): Promise<void> => {
   try {

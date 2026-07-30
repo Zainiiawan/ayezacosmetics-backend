@@ -123,7 +123,7 @@ router.get(
 );
 
 router.get('/:slug', async (req: Request, res: Response) => {
-  const { slug } = req.params;
+  const slug = String(req.params.slug);
   const query = Types.ObjectId.isValid(slug) 
     ? { $or: [{ _id: slug }, { slug: slug }], isActive: true }
     : { slug, isActive: true };

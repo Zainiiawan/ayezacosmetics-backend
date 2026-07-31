@@ -16,6 +16,10 @@ export interface IProductDocument extends Document {
     alt?: string;
     isMain?: boolean;
   }>;
+  video?: {
+    url: string;
+    publicId: string;
+  };
   variants: Array<{
     name: string;
     value: string;
@@ -89,6 +93,10 @@ const productSchema = new Schema<IProductDocument>(
     subcategory: { type: Schema.Types.ObjectId, ref: 'Subcategory', index: true },
     brand: { type: Schema.Types.ObjectId, ref: 'Brand', index: true },
     images: [imageSchema],
+    video: {
+      url: { type: String },
+      publicId: { type: String },
+    },
     variants: [variantSchema],
     basePrice: { type: Number, required: true, min: 0 },
     compareAtPrice: { type: Number, min: 0 },

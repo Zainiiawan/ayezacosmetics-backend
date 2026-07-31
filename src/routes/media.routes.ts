@@ -5,7 +5,7 @@ import fs from 'fs';
 import { v2 as cloudinary } from 'cloudinary';
 import { uploadLimiter } from '../middleware/rateLimiter';
 import { authenticate, requireEmailVerification, adminOnly } from '../middleware/auth';
-import { MAX_IMAGE_SIZE, IMAGE_FORMATS } from '../shared';
+import { MAX_IMAGE_SIZE, IMAGE_FORMATS, VIDEO_FORMATS, MAX_VIDEO_SIZE } from '../shared';
 import { BadRequestError } from '../utils/errors';
 import { testSmtpConnection } from '../utils/email';
 
@@ -40,10 +40,12 @@ const storage =
 
 const upload = multer({
   storage,
-  limits: { fileSize: MAX_IMAGE_SIZE },
+  limits: { fileSize: Math.max(MAX_IMAGE_SIZE, MAX_VIDEO_SIZE) },
   fileFilter: (_req, file, cb) => {
-    if (!(IMAGE_FORMATS as readonly string[]).includes(file.mimetype)) {
-      return cb(new Error('Invalid image type'));
+    const isImage = (IMAGE_FORMATS as readonly string[]).includes(file.mimetype);
+    const isVideo = (VIDEO_FORMATS as readonly string[]).includes(file.mimetype);
+    if (!isImage && !isVideo) {
+      return cb(new Error('Invalid file type. Only images and videos are allowed.'));
     }
     cb(null, true);
   },
@@ -57,10 +59,13 @@ const hasRealCloudinary = () => {
 };
 
 const uploadToCloudinary = async (file: Express.Multer.File) => {
+  const isVideo = (VIDEO_FORMATS as readonly string[]).includes(file.mimetype);
+  const resourceType = isVideo ? 'video' : 'image';
+
   if (file.buffer) {
     return new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        { folder: 'ayeza-cosmetics', resource_type: 'image' },
+        { folder: 'ayeza-cosmetics', resource_type: resourceType },
         (err, result) => {
           if (err || !result) reject(err || new Error('Cloudinary upload failed'));
           else resolve({ secure_url: result.secure_url, public_id: result.public_id });
@@ -71,7 +76,7 @@ const uploadToCloudinary = async (file: Express.Multer.File) => {
   }
   const result = await cloudinary.uploader.upload(file.path, {
     folder: 'ayeza-cosmetics',
-    resource_type: 'image',
+    resource_type: resourceType,
   });
   return { secure_url: result.secure_url, public_id: result.public_id };
 };

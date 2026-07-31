@@ -31,6 +31,12 @@ export const createProductSchema = z.object({
   subcategory: z.string().optional(),
   brand: z.string().optional(),
   images: z.array(productImageSchema).min(1, 'At least one image is required'),
+  video: z
+    .object({
+      url: z.string().url(),
+      publicId: z.string().min(1),
+    })
+    .optional(),
   variants: z.array(productVariantSchema).optional().default([]),
   basePrice: z.number().min(0, 'Price must be positive'),
   compareAtPrice: z.number().min(0).optional(),

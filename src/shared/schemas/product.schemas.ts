@@ -40,6 +40,12 @@ export const createProductSchema = z.object({
   attributes: z.record(z.string()).optional().default({}),
   isFeatured: z.boolean().optional().default(false),
   isActive: z.boolean().optional().default(true),
+  discount: z.object({
+    type: z.enum(['percentage', 'fixed']),
+    value: z.number().min(0),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+  }).nullable().optional(),
   seo: z.object({
     metaTitle: z.string().max(60).optional(),
     metaDescription: z.string().max(160).optional(),

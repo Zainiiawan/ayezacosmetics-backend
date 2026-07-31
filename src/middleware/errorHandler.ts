@@ -10,10 +10,24 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ): void => {
-  logger.error(err.message, {
-    stack: err.stack,
-    name: err.name,
-  });
+  // Determine if it's a client error (4xx) or server error (5xx)
+  const isClientError = 
+    (err instanceof AppError && err.statusCode >= 400 && err.statusCode < 500) ||
+    err instanceof ZodError ||
+    err instanceof mongoose.Error.ValidationError ||
+    (err as NodeJS.ErrnoException).code === '11000' ||
+    err instanceof mongoose.Error.CastError ||
+    err.name === 'JsonWebTokenError' ||
+    err.name === 'TokenExpiredError';
+
+  if (isClientError) {
+    logger.warn(err.message, { name: err.name });
+  } else {
+    logger.error(err.message, {
+      stack: err.stack,
+      name: err.name,
+    });
+  }
 
   // Operational errors — trusted errors we know about
   if (err instanceof AppError) {

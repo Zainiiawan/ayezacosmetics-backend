@@ -2,7 +2,9 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IReviewDocument extends Document {
   product: mongoose.Types.ObjectId;
-  user: mongoose.Types.ObjectId;
+  user?: mongoose.Types.ObjectId;
+  guestName?: string;
+  guestEmail?: string;
   order?: mongoose.Types.ObjectId;
   rating: number;
   title: string;
@@ -18,11 +20,13 @@ export interface IReviewDocument extends Document {
 const reviewSchema = new Schema<IReviewDocument>(
   {
     product: { type: Schema.Types.ObjectId, ref: 'Product', required: true, index: true },
-    user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    user: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+    guestName: { type: String, trim: true },
+    guestEmail: { type: String, trim: true, lowercase: true },
     order: { type: Schema.Types.ObjectId, ref: 'Order' },
     rating: { type: Number, required: true, min: 1, max: 5 },
     title: { type: String, required: true, trim: true, maxlength: 100 },
-    body: { type: String, required: true, trim: true, minlength: 10, maxlength: 2000 },
+    body: { type: String, required: true, trim: true, minlength: 10, maxlength: 500 },
     images: [String],
     isVerifiedPurchase: { type: Boolean, default: false, index: true },
     isApproved: { type: Boolean, default: false, index: true },
@@ -33,9 +37,9 @@ const reviewSchema = new Schema<IReviewDocument>(
   { timestamps: true }
 );
 
-// One review per user per product
-reviewSchema.index({ product: 1, user: 1 }, { unique: true });
+// Removed rigid unique compound index {product: 1, user: 1} to allow guests and programmatic uniqueness checks.
+reviewSchema.index({ product: 1, guestEmail: 1 });
 reviewSchema.index({ product: 1, isApproved: 1 });
-reviewSchema.index({ user: 1, createdAt: -1 });
+reviewSchema.index({ createdAt: -1 });
 
 export const Review: Model<IReviewDocument> = mongoose.model<IReviewDocument>('Review', reviewSchema);

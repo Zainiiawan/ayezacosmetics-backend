@@ -40,6 +40,8 @@ export interface IProductDocument extends Document {
   };
   isFeatured: boolean;
   isActive: boolean;
+  isComingSoon: boolean;
+  launchDate?: Date;
   rating: number;
   reviewCount: number;
   soldCount: number;
@@ -102,6 +104,8 @@ const productSchema = new Schema<IProductDocument>(
     },
     isFeatured: { type: Boolean, default: false, index: true },
     isActive: { type: Boolean, default: true, index: true },
+    isComingSoon: { type: Boolean, default: false, index: true },
+    launchDate: { type: Date },
     rating: { type: Number, default: 0, min: 0, max: 5 },
     reviewCount: { type: Number, default: 0 },
     soldCount: { type: Number, default: 0 },

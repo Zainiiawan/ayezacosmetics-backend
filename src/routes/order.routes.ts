@@ -71,6 +71,7 @@ router.post('/', optionalAuthenticate, validate(checkoutSchema), async (req: Req
     for (const item of itemsFromBody) {
       const product = await Product.findById(item.productId);
       if (!product || !product.isActive) throw new NotFoundError(`Product ${item.productId} not found`);
+      if (product.isComingSoon) throw new BadRequestError(`Product ${product.name} is coming soon and cannot be ordered.`);
 
       const variant = item.variant
         ? product.variants.find((v: any) => v.sku === item.variant || v.value === item.variant)
@@ -101,6 +102,15 @@ router.post('/', optionalAuthenticate, validate(checkoutSchema), async (req: Req
   }
 
   if (finalItems.length === 0) throw new BadRequestError('No items to checkout');
+
+  // Verify Cart Items (Buy Now items were already verified in the first loop)
+  if (!itemsFromBody || itemsFromBody.length === 0) {
+    for (const item of finalItems) {
+      const product = await Product.findById(item.product);
+      if (!product || !product.isActive) throw new NotFoundError(`Product not found`);
+      if (product.isComingSoon) throw new BadRequestError(`Product ${product.name} is coming soon and cannot be ordered.`);
+    }
+  }
 
   const couponCode = couponCodeFromBody ?? (cart ? cart.couponCode : undefined);
 

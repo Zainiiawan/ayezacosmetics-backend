@@ -55,6 +55,7 @@ const computeCartTotals = (items: any[]) => {
 const resolveCartItem = async (input: CartItemInput) => {
   const product = await Product.findById(input.productId).populate('category subcategory brand');
   if (!product || !product.isActive) throw new NotFoundError('Product');
+  if (product.isComingSoon) throw new BadRequestError('This product is coming soon.');
 
   const variant =
     input.variant

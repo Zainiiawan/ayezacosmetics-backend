@@ -1,7 +1,9 @@
+import rateLimit from 'express-rate-limit';
+import xss from 'xss';
 import express, { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { validate } from '../middleware/validate';
-import { adminOnly, authenticate, requireEmailVerification } from '../middleware/auth';
+import { adminOnly, authenticate, optionalAuthenticate, requireEmailVerification } from '../middleware/auth';
 import { createReviewSchema, updateReviewModerationSchema } from '../shared';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../utils/errors';
 import { Review } from '../models/Review';
@@ -49,36 +51,72 @@ router.get('/:productId', async (req: Request, res: Response) => {
   res.json({ success: true, message: 'Reviews fetched', data: reviews });
 });
 
-router.post('/', authenticate, requireEmailVerification, validate(createReviewSchema), async (req: Request, res: Response) => {
-  const { product, rating, title, body, images } = req.body;
-  const userId = req.user!._id;
+
+const reviewLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour window
+  max: 5, // start blocking after 5 requests
+  message: { success: false, message: 'Too many reviews submitted from this IP, please try again after an hour' },
+});
+
+router.post('/', reviewLimiter, optionalAuthenticate, validate(createReviewSchema), async (req: Request, res: Response) => {
+  const { product, rating, title, body, images, guestName, guestEmail } = req.body;
+  const userId = req.user?._id;
+
+  if (!userId && (!guestName || !guestEmail)) {
+    throw new BadRequestError('Guest name and email are required if not logged in');
+  }
 
   const productDoc = await Product.findById(product);
   if (!productDoc || !productDoc.isActive) throw new NotFoundError('Product');
 
-  const hasPurchase = await Order.findOne({
-    user: new Types.ObjectId(String(userId)),
-    'items.product': new Types.ObjectId(product),
-    paymentStatus: { $in: ['paid', 'partially_refunded'] },
-    status: { $nin: ['cancelled', 'refunded', 'returned'] },
-  });
+  // Enforce unique review per user or guest email
+  if (userId) {
+    const existing = await Review.findOne({ product, user: userId });
+    if (existing) throw new BadRequestError('You have already reviewed this product');
+  } else {
+    const existing = await Review.findOne({ product, guestEmail: guestEmail.toLowerCase() });
+    if (existing) throw new BadRequestError('A review has already been submitted with this email for this product');
+  }
 
-  const existing = await Review.findOne({ product, user: userId });
-  if (existing) throw new BadRequestError('You have already reviewed this product');
+  let hasPurchase = false;
+  if (userId) {
+    const order = await Order.findOne({
+      user: new Types.ObjectId(String(userId)),
+      'items.product': new Types.ObjectId(product),
+      paymentStatus: { $in: ['paid', 'partially_refunded'] },
+      status: { $nin: ['cancelled', 'refunded', 'returned'] },
+    });
+    hasPurchase = !!order;
+  }
+
+  const sanitizedBody = xss(body);
+  const sanitizedTitle = xss(title);
 
   const created = await Review.create({
     product: new Types.ObjectId(product),
-    user: new Types.ObjectId(String(userId)),
-    order: hasPurchase ? hasPurchase._id : undefined,
+    user: userId ? new Types.ObjectId(String(userId)) : undefined,
+    guestName: userId ? undefined : guestName,
+    guestEmail: userId ? undefined : guestEmail.toLowerCase(),
     rating,
-    title,
-    body,
+    title: sanitizedTitle,
+    body: sanitizedBody,
     images,
-    isVerifiedPurchase: !!hasPurchase,
-    isApproved: false,
+    isVerifiedPurchase: hasPurchase,
+    isApproved: true, // Auto-approve to show immediately
   });
 
-  res.status(201).json({ success: true, message: 'Review submitted for moderation', data: created });
+  // Auto-recalculate average rating and total review count
+  const agg = await Review.aggregate([
+    { $match: { product: new Types.ObjectId(product), isApproved: true } },
+    { $group: { _id: '$product', avg: { $avg: '$rating' }, count: { $sum: 1 } } },
+  ]);
+  const row = agg[0];
+  await Product.findByIdAndUpdate(product, {
+    rating: row ? Math.round((row.avg ?? 0) * 10) / 10 : 0,
+    reviewCount: row?.count ?? 0,
+  });
+
+  res.status(201).json({ success: true, message: 'Review submitted successfully', data: created });
 });
 
 router.post('/:reviewId/helpful', authenticate, async (req: Request, res: Response) => {

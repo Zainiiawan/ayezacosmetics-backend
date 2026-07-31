@@ -40,6 +40,8 @@ export const createProductSchema = z.object({
   attributes: z.record(z.string()).optional().default({}),
   isFeatured: z.boolean().optional().default(false),
   isActive: z.boolean().optional().default(true),
+  isComingSoon: z.boolean().optional().default(false),
+  launchDate: z.string().optional(),
   discount: z.object({
     type: z.enum(['percentage', 'fixed']),
     value: z.number().min(0),

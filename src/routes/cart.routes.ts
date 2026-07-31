@@ -71,7 +71,7 @@ const resolveCartItem = async (input: CartItemInput) => {
 
   const unitBasePrice = chosenVariant ? chosenVariant.price : product.basePrice;
   const unitPrice = applyProductDiscount(product, unitBasePrice);
-  const compareAtPrice = chosenVariant?.compareAtPrice ?? product.compareAtPrice;
+  const compareAtPrice = chosenVariant?.compareAtPrice ?? product.compareAtPrice ?? unitBasePrice;
 
   const mainImage = getMainImage(product);
   const image = chosenVariant?.images?.[0] ? chosenVariant.images[0] : mainImage;

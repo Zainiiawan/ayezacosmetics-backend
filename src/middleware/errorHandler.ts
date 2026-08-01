@@ -21,7 +21,11 @@ export const errorHandler = (
     err.name === 'TokenExpiredError';
 
   if (isClientError) {
-    logger.warn(err.message, { name: err.name });
+    if (err instanceof AppError && err.statusCode === 404) {
+      logger.info(err.message, { name: err.name });
+    } else {
+      logger.warn(err.message, { name: err.name });
+    }
   } else {
     logger.error(err.message, {
       stack: err.stack,

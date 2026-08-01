@@ -66,7 +66,7 @@ const baseEmailTemplate = (content: string) => `
 <body>
   <div class="container">
     <div class="header">
-      <img src="${process.env.NEXT_PUBLIC_APP_URL || 'https://ayezacosmetics.vercel.app'}/icon.png" alt="AYEZA COSMETICS Logo">
+      <img src="https://ayezacosmetics.store/icon.png" alt="AYEZA COSMETICS Logo">
       <h1>AYEZA COSMETICS</h1>
       <p>Luxury Beauty, Redefined</p>
     </div>

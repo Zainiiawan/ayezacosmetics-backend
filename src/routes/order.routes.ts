@@ -492,9 +492,9 @@ router.patch(
         customerEmail = user.email;
         customerFirstName = user.firstName;
       }
-    } else if (order.guestInfo) {
-      customerEmail = order.guestInfo.email;
-      customerFirstName = order.guestInfo.firstName;
+    } else {
+      customerEmail = order.customerEmail || '';
+      customerFirstName = order.customerName ? order.customerName.split(' ')[0] : '';
     }
 
     if (customerEmail && customerFirstName) {

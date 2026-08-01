@@ -133,16 +133,14 @@ router.post('/items', authenticate, validate(addItemSchema), async (req: Request
     const mergedQty = existing.quantity + newItem.quantity;
     if (mergedQty > newItem.maxQuantity) throw new BadRequestError(`Quantity exceeds available stock (max ${newItem.maxQuantity})`);
     const updatedQty = mergedQty;
-    cart.items[existingIdx] = {
-      ...existing,
-      quantity: updatedQty,
-      maxQuantity: newItem.maxQuantity,
-      price: newItem.price,
-      compareAtPrice: newItem.compareAtPrice,
-      sku: newItem.sku,
-      slug: newItem.slug,
-      total: newItem.price * updatedQty,
-    };
+    
+    existing.quantity = updatedQty;
+    existing.maxQuantity = newItem.maxQuantity;
+    existing.price = newItem.price;
+    existing.compareAtPrice = newItem.compareAtPrice;
+    existing.sku = newItem.sku;
+    existing.slug = newItem.slug;
+    existing.total = newItem.price * updatedQty;
   } else {
     cart.items = [
       ...(cart.items ?? []),
@@ -203,11 +201,8 @@ router.patch('/items/:productId', authenticate, validate(updateQtySchema), async
   const item = cart.items[itemIdx] as any;
   if (quantity > item.maxQuantity) throw new BadRequestError(`Quantity exceeds available stock (max ${item.maxQuantity})`);
 
-  cart.items[itemIdx] = {
-    ...item,
-    quantity: quantity,
-    total: item.price * quantity,
-  };
+  item.quantity = quantity;
+  item.total = item.price * quantity;
 
   const totals = computeCartTotals(cart.items ?? []);
   cart.subtotal = totals.subtotal;

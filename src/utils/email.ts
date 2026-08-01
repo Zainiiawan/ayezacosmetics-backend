@@ -66,7 +66,7 @@ const baseEmailTemplate = (content: string) => `
 <body>
   <div class="container">
     <div class="header">
-      <img src="${process.env.NEXT_PUBLIC_APP_URL || 'https://ayezacosmetics.vercel.app'}/icon.jpg" alt="AYEZA COSMETICS Logo">
+      <img src="${process.env.NEXT_PUBLIC_APP_URL || 'https://ayezacosmetics.vercel.app'}/icon.png" alt="AYEZA COSMETICS Logo">
       <h1>AYEZA COSMETICS</h1>
       <p>Luxury Beauty, Redefined</p>
     </div>
@@ -363,16 +363,15 @@ export const sendOrderStatusEmail = async (
   }
 ): Promise<void> => {
   const trackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/track-order?orderNumber=${encodeURIComponent(orderNumber)}&email=${encodeURIComponent(email)}`;
-  const trackingBlock = order?.trackingNumber
-    ? `
+  const trackingBlock = `
       <div style="background:#faf7f5;border:1px solid #e8ddd6;border-radius:8px;padding:16px;margin:16px 0;">
-        <p style="margin:0 0 8px;"><strong>Tracking Number:</strong> ${order.trackingNumber}</p>
-        ${order.courierName ? `<p style="margin:0 0 8px;"><strong>Courier:</strong> ${order.courierName}</p>` : ''}
-        ${order.estimatedDelivery ? `<p style="margin:0 0 8px;"><strong>Estimated Delivery:</strong> ${new Date(order.estimatedDelivery).toLocaleDateString('en-PK')}</p>` : ''}
-        ${order.trackingUrl ? `<p style="margin:0;"><a href="${order.trackingUrl}">Track with courier →</a></p>` : ''}
+        <p style="margin:0 0 8px;"><strong>Order ID:</strong> ${orderNumber}</p>
+        ${order?.trackingNumber ? `<p style="margin:0 0 8px;"><strong>Tracking Number:</strong> ${order.trackingNumber}</p>` : ''}
+        ${order?.courierName ? `<p style="margin:0 0 8px;"><strong>Courier:</strong> ${order.courierName}</p>` : ''}
+        ${order?.estimatedDelivery ? `<p style="margin:0 0 8px;"><strong>Estimated Delivery:</strong> ${new Date(order.estimatedDelivery).toLocaleDateString('en-PK')}</p>` : ''}
+        ${order?.trackingUrl ? `<p style="margin:0;"><a href="${order.trackingUrl}">Track with courier →</a></p>` : ''}
       </div>
-    `
-    : '';
+    `;
 
   await sendMail(
     email,

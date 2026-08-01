@@ -468,28 +468,47 @@ router.patch(
     if (order.status === 'delivered') notifType = 'order_delivered';
     if (order.status === 'cancelled') notifType = 'order_cancelled';
 
-    await createNotification({
-      userId: String(order.user),
-      type: notifType,
-      title: label,
-      message: message || `Your order ${order.orderNumber} is now ${label}.`,
-      orderId: order._id,
-      link: `/account/orders/${order._id}`,
-    });
+    if (order.user) {
+      try {
+        await createNotification({
+          userId: String(order.user),
+          type: notifType,
+          title: label,
+          message: message || `Your order ${order.orderNumber} is now ${label}.`,
+          orderId: order._id,
+          link: `/account/orders/${order._id}`,
+        });
+      } catch (err) {
+        console.error('Notification error:', err);
+      }
+    }
 
-    const user = await User.findById(order.user);
-    if (user) {
+    let customerEmail = '';
+    let customerFirstName = '';
+
+    if (order.user) {
+      const user = await User.findById(order.user);
+      if (user) {
+        customerEmail = user.email;
+        customerFirstName = user.firstName;
+      }
+    } else if (order.guestInfo) {
+      customerEmail = order.guestInfo.email;
+      customerFirstName = order.guestInfo.firstName;
+    }
+
+    if (customerEmail && customerFirstName) {
       try {
         await sendOrderStatusEmail(
-          user.email,
-          user.firstName,
+          customerEmail,
+          customerFirstName,
           order.orderNumber,
           order._id.toString(),
           label,
           order
         );
-      } catch {
-        // ignore
+      } catch (err) {
+        console.error('Email sending error:', err);
       }
     }
 

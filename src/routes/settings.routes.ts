@@ -9,6 +9,7 @@ const router = express.Router();
 const settingsSchema = z.object({
   defaultShippingCost: z.number().min(0),
   freeShippingThreshold: z.number().min(0),
+  vipThreshold: z.number().min(0).optional(),
 });
 
 // GET settings (public)

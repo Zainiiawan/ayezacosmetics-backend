@@ -426,6 +426,8 @@ router.patch(
     const order = await Order.findById(orderId);
     if (!order) throw new NotFoundError('Order');
 
+    const previousStatus = order.status;
+
     // COD admin approval: pending_confirmation → processing (and mark payment pending until delivery)
     if (order.paymentMethod === 'cod' && order.status === 'pending_confirmation' && status === 'processing') {
       order.status = 'processing';
@@ -457,6 +459,25 @@ router.patch(
     if (estimatedDelivery) order.estimatedDelivery = new Date(estimatedDelivery);
     if (dispatchedAt) order.dispatchedAt = new Date(dispatchedAt);
     if (status === 'shipped' && !order.dispatchedAt) order.dispatchedAt = new Date();
+
+    if ((status === 'cancelled' || status === 'refunded') && previousStatus !== 'cancelled' && previousStatus !== 'refunded') {
+      for (const item of order.items) {
+        const product = await Product.findById(item.product);
+        if (product) {
+          if (item.variant) {
+            const variant = product.variants.find(
+              (v: any) => v.sku === item.variant || v.value === item.variant || v.sku === item.sku
+            );
+            if (variant) {
+              variant.stock = (variant.stock ?? 0) + item.quantity;
+            }
+          }
+          product.stock = (product.stock ?? 0) + item.quantity;
+          product.soldCount = Math.max(0, (product.soldCount ?? 0) - item.quantity);
+          await product.save();
+        }
+      }
+    }
 
     await order.save();
 
@@ -515,5 +536,34 @@ router.patch(
     res.json({ success: true, message: 'Order status updated', data: order });
   }
 );
+
+router.delete('/:orderId', adminOnly, async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const order = await Order.findById(orderId);
+  if (!order) throw new NotFoundError('Order');
+
+  // Restore stock if it wasn't already cancelled/refunded
+  if (order.status !== 'cancelled' && order.status !== 'refunded') {
+    for (const item of order.items) {
+      const product = await Product.findById(item.product);
+      if (product) {
+        if (item.variant) {
+          const variant = product.variants.find(
+            (v: any) => v.sku === item.variant || v.value === item.variant || v.sku === item.sku
+          );
+          if (variant) {
+            variant.stock = (variant.stock ?? 0) + item.quantity;
+          }
+        }
+        product.stock = (product.stock ?? 0) + item.quantity;
+        product.soldCount = Math.max(0, (product.soldCount ?? 0) - item.quantity);
+        await product.save();
+      }
+    }
+  }
+
+  await Order.findByIdAndDelete(orderId);
+  res.json({ success: true, message: 'Order deleted successfully', data: { _id: orderId } });
+});
 
 export default router;

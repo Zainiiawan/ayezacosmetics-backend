@@ -8,6 +8,7 @@ export interface ICategoryDocument extends Document {
   name: string;
   slug: string;
   description?: string;
+  seoContent?: string;
   image?: { url: string; publicId: string; alt?: string };
   parent?: mongoose.Types.ObjectId;
   isActive: boolean;
@@ -19,6 +20,7 @@ const categorySchema = new Schema<ICategoryDocument>(
     name: { type: String, required: true, trim: true },
     slug: { type: String, unique: true, index: true },
     description: String,
+    seoContent: String,
     image: {
       url: String,
       publicId: String,
@@ -46,6 +48,7 @@ export interface ISubcategoryDocument extends Document {
   name: string;
   slug: string;
   description?: string;
+  seoContent?: string;
   image?: { url: string; publicId: string; alt?: string };
   category: mongoose.Types.ObjectId;
   isActive: boolean;
@@ -57,6 +60,7 @@ const subcategorySchema = new Schema<ISubcategoryDocument>(
     name: { type: String, required: true, trim: true },
     slug: { type: String, unique: true, index: true },
     description: String,
+    seoContent: String,
     image: { url: String, publicId: String, alt: String },
     category: { type: Schema.Types.ObjectId, ref: 'Category', required: true, index: true },
     isActive: { type: Boolean, default: true },

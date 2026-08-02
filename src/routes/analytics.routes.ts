@@ -22,7 +22,7 @@ router.get('/summary', adminOnly, async (_req: Request, res: Response) => {
     ]),
     Product.countDocuments({
       isActive: true,
-      $expr: { $lt: ['$stock', '$lowStockThreshold'] },
+      $expr: { $lt: ['$stock', { $ifNull: ['$lowStockThreshold', 30] }] },
     }),
   ]);
 

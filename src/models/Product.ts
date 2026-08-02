@@ -5,6 +5,7 @@ export interface IProductDocument extends Document {
   name: string;
   slug: string;
   description: string;
+  seoContent?: string;
   shortDescription?: string;
   sku: string;
   category: mongoose.Types.ObjectId;
@@ -87,6 +88,7 @@ const productSchema = new Schema<IProductDocument>(
     name: { type: String, required: true, trim: true, index: 'text' },
     slug: { type: String, unique: true, index: true },
     description: { type: String, required: true },
+    seoContent: { type: String },
     shortDescription: { type: String, maxlength: 500 },
     sku: { type: String, required: true, unique: true, uppercase: true },
     category: { type: Schema.Types.ObjectId, ref: 'Category', required: true, index: true },
@@ -101,7 +103,7 @@ const productSchema = new Schema<IProductDocument>(
     basePrice: { type: Number, required: true, min: 0 },
     compareAtPrice: { type: Number, min: 0 },
     stock: { type: Number, default: 0, min: 0 },
-    lowStockThreshold: { type: Number, default: 10, min: 0 },
+    lowStockThreshold: { type: Number, default: 30, min: 0 },
     tags: [{ type: String, lowercase: true }],
     attributes: { type: Map, of: String, default: {} },
     dimensions: {

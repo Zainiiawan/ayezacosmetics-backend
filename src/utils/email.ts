@@ -137,7 +137,7 @@ const sendMail = async (
 };
 
 export const sendVerificationEmail = async (email: string, firstName: string, token: string): Promise<void> => {
-  const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify-email?token=${token}`;
+  const verifyUrl = `${(process.env.CLIENT_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'https://ayezacosmetics.store')}/auth/verify-email?token=${token}`;
   await sendMail(
     email,
     'Welcome to AYEZA COSMETICS — Verify Your Email',
@@ -170,7 +170,7 @@ export const sendOtpEmail = async (email: string, firstName: string, otp: string
 };
 
 export const sendPasswordResetEmail = async (email: string, firstName: string, token: string): Promise<void> => {
-  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`;
+  const resetUrl = `${(process.env.CLIENT_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'https://ayezacosmetics.store')}/reset-password?token=${token}`;
   await sendMail(
     email,
     'AYEZA COSMETICS — Password Reset',
@@ -239,7 +239,7 @@ export const sendOrderConfirmationEmail = async (
   }
 ): Promise<void> => {
   const orderId = typeof order._id === 'string' ? order._id : order._id.toString();
-  const trackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/track-order?orderNumber=${encodeURIComponent(order.orderNumber)}&email=${encodeURIComponent(email)}`;
+  const trackUrl = `${(process.env.CLIENT_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'https://ayezacosmetics.store')}/track-order?orderNumber=${encodeURIComponent(order.orderNumber)}&email=${encodeURIComponent(email)}`;
   const statusLabel = ORDER_STATUS_LABELS[order.status] || order.status;
   const paymentLabel = PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod;
   const addr = order.shippingAddress;
@@ -293,7 +293,7 @@ export const sendNewOrderNotificationEmail = async (
   adminEmail: string,
   order: any
 ): Promise<void> => {
-  const orderUrl = `${process.env.NEXT_PUBLIC_APP_URL}/admin/orders/${order._id}`;
+  const orderUrl = `${(process.env.CLIENT_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'https://ayezacosmetics.store')}/admin/orders?id=${order._id}`;
   const statusLabel = ORDER_STATUS_LABELS[order.status as keyof typeof ORDER_STATUS_LABELS] || order.status;
   const paymentLabel = PAYMENT_METHOD_LABELS[order.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] || order.paymentMethod;
 
@@ -328,7 +328,7 @@ export const sendPaymentStatusEmail = async (
   approved: boolean,
   reason?: string
 ): Promise<void> => {
-  const orderUrl = `${process.env.NEXT_PUBLIC_APP_URL}/account/orders/${orderId}`;
+  const orderUrl = `${(process.env.CLIENT_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'https://ayezacosmetics.store')}/account/orders/${orderId}`;
   await sendMail(
     email,
     approved
@@ -362,7 +362,7 @@ export const sendOrderStatusEmail = async (
     estimatedDelivery?: Date;
   }
 ): Promise<void> => {
-  const trackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/track-order?orderNumber=${encodeURIComponent(orderNumber)}&email=${encodeURIComponent(email)}`;
+  const trackUrl = `${(process.env.CLIENT_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'https://ayezacosmetics.store')}/track-order?orderNumber=${encodeURIComponent(orderNumber)}&email=${encodeURIComponent(email)}`;
   const trackingBlock = `
       <div style="background:#faf7f5;border:1px solid #e8ddd6;border-radius:8px;padding:16px;margin:16px 0;">
         <p style="margin:0 0 8px;"><strong>Order ID:</strong> ${orderNumber}</p>
@@ -397,7 +397,7 @@ export const sendWelcomeEmail = async (email: string, firstName: string): Promis
     `
       <h2>Welcome, ${firstName}!</h2>
       <p>Your email is verified. Explore our luxury beauty collection.</p>
-      <p style="text-align:center;"><a href="${process.env.NEXT_PUBLIC_APP_URL}/shop" class="btn">Start Shopping</a></p>
+      <p style="text-align:center;"><a href="${(process.env.CLIENT_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'https://ayezacosmetics.store')}/shop" class="btn">Start Shopping</a></p>
     `
   );
 };

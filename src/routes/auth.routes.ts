@@ -7,7 +7,7 @@ import { adminOnly, authenticate, optionalAuthenticate, requireEmailVerification
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError, UnauthorizedError } from '../utils/errors';
 import { generateRandomToken, hashToken, generateTokenPair, verifyRefreshToken } from '../utils/jwt';
 import { User } from '../models/User';
-import { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail, sendOtpEmail } from '../utils/email';
+import { sendVerificationEmail, sendPasswordResetOtpEmail, sendWelcomeEmail, sendOtpEmail } from '../utils/email';
 import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema, updateProfileSchema, addressSchema, changePasswordSchema, verifyOtpSchema, resendOtpSchema } from '../shared';
 import crypto from 'crypto';
 import { Cart } from '../models/Cart';
@@ -350,16 +350,45 @@ router.post(
     const user = await User.findOne({ email: email.toLowerCase() });
     // Avoid leaking which emails exist.
     if (user) {
-      const token = generateRandomToken(32);
-      user.passwordResetToken = hashToken(token);
-      user.passwordResetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1h
+      const otp = generateOtp();
+      user.passwordResetToken = hashToken(otp);
+      user.passwordResetExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10m
       await user.save();
-      await sendPasswordResetEmail(user.email, user.firstName, token);
+      await sendPasswordResetOtpEmail(user.email, user.firstName, otp);
     }
 
     return res.json({
       success: true,
-      message: 'If that email exists, a reset link has been sent.',
+      message: 'If that email exists, a verification code has been sent.',
+    });
+  }
+);
+
+router.post(
+  '/verify-password-reset-otp',
+  validate(verifyOtpSchema),
+  async (req: Request, res: Response) => {
+    const { email, otp } = req.body;
+
+    const otpHash = hashToken(otp);
+    const user = await User.findOne({
+      email: email.toLowerCase(),
+      passwordResetToken: otpHash,
+      passwordResetExpiry: { $gt: new Date() },
+    });
+
+    if (!user) throw new UnauthorizedError('Invalid or expired verification code');
+
+    // Generate a secure token for the actual reset step
+    const secureToken = generateRandomToken(32);
+    user.passwordResetToken = hashToken(secureToken);
+    user.passwordResetExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15m to complete reset
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: 'Code verified successfully',
+      data: { token: secureToken },
     });
   }
 );

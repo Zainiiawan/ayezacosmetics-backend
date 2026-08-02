@@ -169,17 +169,19 @@ export const sendOtpEmail = async (email: string, firstName: string, otp: string
   );
 };
 
-export const sendPasswordResetEmail = async (email: string, firstName: string, token: string): Promise<void> => {
-  const resetUrl = `${(process.env.CLIENT_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'https://ayezacosmetics.store')}/reset-password?token=${token}`;
+export const sendPasswordResetOtpEmail = async (email: string, firstName: string, otp: string): Promise<void> => {
   await sendMail(
     email,
-    'AYEZA COSMETICS — Password Reset',
+    'AYEZA COSMETICS — Password Reset Verification Code',
     `
       <h2>Reset Your Password</h2>
-      <p>Hi ${firstName}, we received a password reset request.</p>
-      <p style="text-align:center;"><a href="${resetUrl}" class="btn">Reset Password</a></p>
-      <p>This link expires in 1 hour.</p>
-      <p><small>${resetUrl}</small></p>
+      <p>Hi ${firstName}, we received a password reset request for your account.</p>
+      <p>Please enter the following 6-digit code to verify your request:</p>
+      <div style="text-align:center; margin: 24px 0;">
+        <span style="display:inline-block; font-size:36px; font-weight:700; letter-spacing:12px; color:#0a0a0a; background:#f5f0ed; padding:16px 32px; border-radius:12px; border:2px solid #C9956A;">${otp}</span>
+      </div>
+      <p>This code expires in <strong>10 minutes</strong>.</p>
+      <p style="color:#999; font-size:13px;">If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
     `,
     { softFail: false }
   );

@@ -348,18 +348,20 @@ router.post(
     const { email } = req.body;
 
     const user = await User.findOne({ email: email.toLowerCase() });
-    // Avoid leaking which emails exist.
-    if (user) {
-      const otp = generateOtp();
-      user.passwordResetToken = hashToken(otp);
-      user.passwordResetExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10m
-      await user.save();
-      await sendPasswordResetOtpEmail(user.email, user.firstName, otp);
+    
+    if (!user) {
+      throw new NotFoundError('User not registered. Please create an account.');
     }
+
+    const otp = generateOtp();
+    user.passwordResetToken = hashToken(otp);
+    user.passwordResetExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10m
+    await user.save();
+    await sendPasswordResetOtpEmail(user.email, user.firstName, otp);
 
     return res.json({
       success: true,
-      message: 'If that email exists, a verification code has been sent.',
+      message: 'A verification code has been sent to your email.',
     });
   }
 );

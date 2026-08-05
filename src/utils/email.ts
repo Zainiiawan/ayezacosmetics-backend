@@ -439,3 +439,33 @@ export const testSmtpConnection = async (): Promise<{
     };
   }
 };
+
+export const sendAdminReplyEmail = async (
+  email: string,
+  firstName: string,
+  productName: string,
+  productSlug: string,
+  replyBody: string
+): Promise<void> => {
+  const productUrl = `${(process.env.CLIENT_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'https://ayezacosmetics.store')}/products/${productSlug}`;
+  await sendMail(
+    email,
+    `AYEZA COSMETICS — Admin Reply to Your Review on ${productName}`,
+    `
+      <h2>Hi ${firstName},</h2>
+      <p>An admin has replied to your review on <strong>${productName}</strong>:</p>
+      
+      <div style="background:#faf7f5;border-left:4px solid #C9956A;padding:16px;margin:20px 0;font-style:italic;">
+        "${replyBody}"
+      </div>
+      
+      <p style="text-align:center;margin:32px 0;">
+        <a href="${productUrl}" class="btn" style="font-size:16px;padding:16px 40px;">VIEW ON WEBSITE</a>
+      </p>
+      
+      <p style="color:#666;font-size:13px;text-align:center;margin-top:32px;">
+        Thank you for being a part of AYEZA COSMETICS!
+      </p>
+    `
+  );
+};

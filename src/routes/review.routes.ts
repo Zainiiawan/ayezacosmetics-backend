@@ -1,14 +1,15 @@
 import rateLimit from 'express-rate-limit';
 import xss from 'xss';
-import express, { Request, Response } from 'express';
-import { Types } from 'mongoose';
-import { validate } from '../middleware/validate';
 import { adminOnly, authenticate, optionalAuthenticate, requireEmailVerification } from '../middleware/auth';
 import { createReviewSchema, updateReviewModerationSchema } from '../shared';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../utils/errors';
 import { Review } from '../models/Review';
 import { Order } from '../models/Order';
 import { Product } from '../models/Product';
+import { sendAdminReplyEmail } from '../utils/email';
+import express, { Request, Response } from 'express';
+import { Types } from 'mongoose';
+import { validate } from '../middleware/validate';
 
 const router = express.Router();
 
@@ -196,7 +197,7 @@ router.patch('/:reviewId/reply', adminOnly, express.json(), async (req: Request,
     throw new BadRequestError('Reply body is required');
   }
 
-  const review = await Review.findById(reviewId);
+  const review = await Review.findById(reviewId).populate('user').populate('product');
   if (!review) throw new NotFoundError('Review');
 
   review.adminReply = {
@@ -204,6 +205,22 @@ router.patch('/:reviewId/reply', adminOnly, express.json(), async (req: Request,
     createdAt: new Date(),
   };
   await review.save();
+
+  // Send Email Notification to user
+  const reviewerEmail = review.user ? (review.user as any).email : review.guestEmail;
+  const reviewerName = review.user ? (review.user as any).firstName : review.guestName;
+  const productName = review.product ? (review.product as any).name : 'our product';
+  const productSlug = review.product ? (review.product as any).slug : '';
+
+  if (reviewerEmail) {
+    sendAdminReplyEmail(
+      reviewerEmail,
+      reviewerName || 'Valued Customer',
+      productName,
+      productSlug,
+      review.adminReply.body
+    ).catch(e => console.error('Failed to send admin reply email:', e));
+  }
 
   res.json({ success: true, message: 'Reply added successfully', data: review });
 });

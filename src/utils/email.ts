@@ -232,8 +232,11 @@ export const sendOrderConfirmationEmail = async (
     };
     paymentMethod: string;
     subtotal: number;
+    productDiscount?: number;
     shippingCost: number;
     discount: number;
+    manualDiscount?: number;
+    tax?: number;
     total: number;
     status: string;
     estimatedDelivery?: Date;
@@ -267,8 +270,11 @@ export const sendOrderConfirmationEmail = async (
       <h3 style="margin-top:24px;">Order Summary</h3>
       ${orderItemsTable(order.items)}
       <p><strong>Subtotal:</strong> ${formatPkr(order.subtotal)}</p>
-      <p><strong>Shipping:</strong> ${order.shippingCost === 0 ? 'FREE' : formatPkr(order.shippingCost)}</p>
-      ${order.discount > 0 ? `<p><strong>Discount:</strong> -${formatPkr(order.discount)}</p>` : ''}
+      ${(order.productDiscount && order.productDiscount > 0) ? `<p style="color:#22c55e;"><strong>Product Discount:</strong> -${formatPkr(order.productDiscount)}</p>` : ''}
+      ${order.discount > 0 ? `<p style="color:#22c55e;"><strong>Coupon Discount:</strong> -${formatPkr(order.discount)}</p>` : ''}
+      ${(order.manualDiscount && order.manualDiscount > 0) ? `<p style="color:#f97316;"><strong>Manual Discount:</strong> -${formatPkr(order.manualDiscount)}</p>` : ''}
+      <p><strong>Shipping:</strong> ${order.shippingCost === 0 ? 'FREE' : '+' + formatPkr(order.shippingCost)}</p>
+      ${(order.tax && order.tax > 0) ? `<p><strong>Tax:</strong> +${formatPkr(order.tax)}</p>` : ''}
       <p style="font-size:18px;"><strong>Total:</strong> ${formatPkr(order.total)}</p>
 
       <h3 style="margin-top:24px;">Shipping Address</h3>

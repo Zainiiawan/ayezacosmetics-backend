@@ -35,8 +35,12 @@ export interface IOrderDocument extends Document {
     name: string;
     image: string;
     price: number;
+    originalPrice: number;
+    salePrice: number;
+    productDiscount: number;
     quantity: number;
     total: number;
+    lineTotal: number;
     sku: string;
   }>;
   shippingAddress: {
@@ -61,7 +65,10 @@ export interface IOrderDocument extends Document {
   };
   subtotal: number;
   shippingCost: number;
+  productDiscount: number;
   discount: number;
+  manualDiscount: number;
+  manualDiscountReason?: string;
   tax: number;
   total: number;
   couponCode?: string;
@@ -83,6 +90,15 @@ export interface IOrderDocument extends Document {
   }>;
   estimatedDelivery?: Date;
   notes?: string;
+  auditLog?: Array<{
+    timestamp: Date;
+    adminUser?: mongoose.Types.ObjectId;
+    adminName?: string;
+    actionPerformed: string;
+    oldValues?: any;
+    newValues?: any;
+    reason?: string;
+  }>;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -94,8 +110,12 @@ const orderItemSchema = new Schema(
     name: { type: String, required: true },
     image: { type: String, required: true },
     price: { type: Number, required: true, min: 0 },
+    originalPrice: { type: Number, required: true, min: 0, default: 0 },
+    salePrice: { type: Number, required: true, min: 0, default: 0 },
+    productDiscount: { type: Number, default: 0, min: 0 },
     quantity: { type: Number, required: true, min: 1 },
     total: { type: Number, required: true, min: 0 },
+    lineTotal: { type: Number, required: true, min: 0, default: 0 },
     sku: { type: String, required: true },
   },
   { _id: false }
@@ -121,6 +141,19 @@ const trackingSchema = new Schema(
     message: { type: String, required: true },
     timestamp: { type: Date, default: Date.now },
     location: String,
+  },
+  { _id: false }
+);
+
+const auditLogSchema = new Schema(
+  {
+    timestamp: { type: Date, default: Date.now },
+    adminUser: { type: Schema.Types.ObjectId, ref: 'User' },
+    adminName: String,
+    actionPerformed: { type: String, required: true },
+    oldValues: { type: Schema.Types.Mixed },
+    newValues: { type: Schema.Types.Mixed },
+    reason: String,
   },
   { _id: false }
 );
@@ -153,7 +186,10 @@ const orderSchema = new Schema<IOrderDocument>(
     billingAddress: addressSchema,
     subtotal: { type: Number, required: true, min: 0 },
     shippingCost: { type: Number, default: 0, min: 0 },
+    productDiscount: { type: Number, default: 0, min: 0 },
     discount: { type: Number, default: 0, min: 0 },
+    manualDiscount: { type: Number, default: 0, min: 0 },
+    manualDiscountReason: String,
     tax: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true, min: 0 },
     couponCode: String,
@@ -204,6 +240,7 @@ const orderSchema = new Schema<IOrderDocument>(
     trackingHistory: [trackingSchema],
     estimatedDelivery: Date,
     notes: { type: String, maxlength: 500 },
+    auditLog: [auditLogSchema],
   },
   { timestamps: true }
 );

@@ -414,7 +414,8 @@ router.get('/track/lookup', async (req: Request, res: Response) => {
   if (!order) throw new NotFoundError('Order');
 
   const orderUser = order.user as { email?: string } | undefined;
-  if (!orderUser?.email || orderUser.email.toLowerCase() !== email) {
+  const orderEmail = (orderUser?.email || order.customerEmail || '').toLowerCase();
+  if (orderEmail !== email) {
     throw new ForbiddenError('Order not found for this email');
   }
 

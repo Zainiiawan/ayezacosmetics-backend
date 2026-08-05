@@ -12,13 +12,13 @@ import { Product } from '../models/Product';
 
 const router = express.Router();
 
-router.get('/admin/pending', adminOnly, async (_req: Request, res: Response) => {
-  const pending = await Review.find({ isApproved: false })
+router.get('/admin/all', adminOnly, async (_req: Request, res: Response) => {
+  const reviews = await Review.find()
     .populate('user', 'firstName lastName email')
     .populate('product', 'name slug')
     .sort({ createdAt: -1 })
-    .limit(200);
-  res.json({ success: true, message: 'Pending reviews fetched', data: pending });
+    .limit(500);
+  res.json({ success: true, message: 'All reviews fetched', data: reviews });
 });
 
 router.get('/:productId/stats', async (req: Request, res: Response) => {
@@ -166,5 +166,46 @@ router.patch(
     res.json({ success: true, message: 'Review moderation updated', data: review });
   }
 );
+
+router.delete('/:reviewId', adminOnly, async (req: Request, res: Response) => {
+  const reviewId = Array.isArray(req.params.reviewId) ? req.params.reviewId[0] : req.params.reviewId;
+  const review = await Review.findById(reviewId);
+  if (!review) throw new NotFoundError('Review');
+
+  const productId = review.product;
+  await review.deleteOne();
+
+  // Recalculate stats
+  const agg = await Review.aggregate([
+    { $match: { product: productId, isApproved: true } },
+    { $group: { _id: '$product', avg: { $avg: '$rating' }, count: { $sum: 1 } } },
+  ]);
+  const row = agg[0];
+  await Product.findByIdAndUpdate(productId, {
+    rating: row ? Math.round((row.avg ?? 0) * 10) / 10 : 0,
+    reviewCount: row?.count ?? 0,
+  });
+
+  res.json({ success: true, message: 'Review deleted successfully' });
+});
+
+router.patch('/:reviewId/reply', adminOnly, express.json(), async (req: Request, res: Response) => {
+  const reviewId = Array.isArray(req.params.reviewId) ? req.params.reviewId[0] : req.params.reviewId;
+  const { body } = req.body;
+  if (!body || typeof body !== 'string' || body.trim().length === 0) {
+    throw new BadRequestError('Reply body is required');
+  }
+
+  const review = await Review.findById(reviewId);
+  if (!review) throw new NotFoundError('Review');
+
+  review.adminReply = {
+    body: xss(body.trim()),
+    createdAt: new Date(),
+  };
+  await review.save();
+
+  res.json({ success: true, message: 'Reply added successfully', data: review });
+});
 
 export default router;

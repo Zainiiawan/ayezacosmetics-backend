@@ -15,6 +15,10 @@ export interface IReviewDocument extends Document {
   moderationNote?: string;
   helpfulVotes: number;
   helpfulVoters: mongoose.Types.ObjectId[];
+  adminReply?: {
+    body: string;
+    createdAt: Date;
+  };
 }
 
 const reviewSchema = new Schema<IReviewDocument>(
@@ -33,6 +37,10 @@ const reviewSchema = new Schema<IReviewDocument>(
     moderationNote: String,
     helpfulVotes: { type: Number, default: 0 },
     helpfulVoters: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    adminReply: {
+      body: String,
+      createdAt: { type: Date, default: Date.now }
+    }
   },
   { timestamps: true }
 );

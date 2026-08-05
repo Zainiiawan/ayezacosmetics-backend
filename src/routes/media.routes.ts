@@ -58,27 +58,44 @@ const hasRealCloudinary = () => {
   return Boolean(name && key && secret && name !== 'demo' && key !== 'demo');
 };
 
-const uploadToCloudinary = async (file: Express.Multer.File) => {
+const uploadToCloudinary = async (file: Express.Multer.File, useModeration = false) => {
   const isVideo = (VIDEO_FORMATS as readonly string[]).includes(file.mimetype);
   const resourceType = isVideo ? 'video' : 'image';
+  
+  const options: any = { folder: 'ayeza-cosmetics', resource_type: resourceType };
+  if (useModeration) {
+    options.moderation = 'aws_rek';
+  }
+
+  const checkModerationAndReturn = (result: any) => {
+    const status = result.moderation && result.moderation.length > 0 ? result.moderation[0].status : 'approved';
+    if (status === 'rejected') {
+      cloudinary.uploader.destroy(result.public_id).catch(() => {});
+      throw new BadRequestError('Your review could not be submitted because one or more attached files violate our community guidelines.');
+    }
+    return { secure_url: result.secure_url, public_id: result.public_id };
+  };
 
   if (file.buffer) {
     return new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        { folder: 'ayeza-cosmetics', resource_type: resourceType },
+        options,
         (err, result) => {
           if (err || !result) reject(err || new Error('Cloudinary upload failed'));
-          else resolve({ secure_url: result.secure_url, public_id: result.public_id });
+          else {
+            try {
+              resolve(checkModerationAndReturn(result));
+            } catch (e) {
+              reject(e);
+            }
+          }
         }
       );
       stream.end(file.buffer);
     });
   }
-  const result = await cloudinary.uploader.upload(file.path, {
-    folder: 'ayeza-cosmetics',
-    resource_type: resourceType,
-  });
-  return { secure_url: result.secure_url, public_id: result.public_id };
+  const result = await cloudinary.uploader.upload(file.path, options);
+  return checkModerationAndReturn(result);
 };
 
 router.post(
@@ -106,6 +123,54 @@ router.post(
           });
           continue;
         } catch {
+          // fall through to local (dev only)
+        }
+      }
+
+      if (isServerless || !file.filename) {
+        throw new BadRequestError(
+          'Image upload requires Cloudinary in production. Configure CLOUDINARY_* env vars.'
+        );
+      }
+
+      const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 5001}`;
+      uploads.push({
+        url: `${baseUrl}/uploads/${file.filename}`,
+        publicId: file.filename,
+        alt: file.originalname,
+      });
+    }
+
+    res.status(201).json({ success: true, message: 'Upload successful', data: uploads });
+  }
+);
+
+router.post(
+  '/upload/public',
+  uploadLimiter,
+  upload.array('files', 5),
+  async (req: Request, res: Response) => {
+    const files = (req.files ?? []) as Express.Multer.File[];
+    if (!files.length) throw new BadRequestError('No files uploaded');
+
+    const uploads = [];
+    for (const file of files) {
+      if (hasRealCloudinary()) {
+        try {
+          const result = await uploadToCloudinary(file, true);
+          if (file.path && fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+          }
+          uploads.push({
+            url: result.secure_url,
+            publicId: result.public_id,
+            alt: file.originalname,
+          });
+          continue;
+        } catch (err) {
+          if (err instanceof BadRequestError) {
+            throw err;
+          }
           // fall through to local (dev only)
         }
       }

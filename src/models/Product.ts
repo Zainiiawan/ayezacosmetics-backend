@@ -170,8 +170,12 @@ productSchema.methods.getEffectivePrice = function (): number {
 
 // Indexes
 productSchema.index({ name: 'text', description: 'text', tags: 'text' });
-productSchema.index({ category: 1, isActive: 1 });
+productSchema.index({ category: 1, isActive: 1, soldCount: -1 }); // Optimized for category bestselling
+productSchema.index({ category: 1, isActive: 1, createdAt: -1 }); // Optimized for category newest
+productSchema.index({ category: 1, isActive: 1, basePrice: 1 });  // Optimized for category price
 productSchema.index({ brand: 1, isActive: 1 });
+productSchema.index({ isActive: 1, soldCount: -1 }); // Optimized for /shop bestselling
+productSchema.index({ isActive: 1, createdAt: -1 }); // Optimized for /shop newest
 productSchema.index({ basePrice: 1 });
 productSchema.index({ rating: -1 });
 productSchema.index({ soldCount: -1 });

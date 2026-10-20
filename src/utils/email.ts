@@ -39,40 +39,46 @@ const canSendEmail = (): boolean => {
   return Boolean((process.env.EMAIL_USER || '').trim() && (process.env.EMAIL_PASSWORD || '').trim());
 };
 
+// Keep the configured sender address but always show the brand as the sender name
+const withBrandName = (from: string) => {
+  const address = from.match(/<([^>]+)>/)?.[1] ?? from.trim();
+  return `AZEEORA <${address}>`;
+};
+
 const baseEmailTemplate = (content: string) => `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AYEZA COSMETICS</title>
+  <title>AZEEORA</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
     .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-    .header { background: linear-gradient(135deg, #1a0a0f 0%, #2d1520 100%); padding: 32px 40px; text-align: center; }
-    .header img { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 16px; border: 3px solid #C9956A; }
-    .header h1 { color: #C9956A; font-family: Georgia, serif; font-size: 26px; margin: 0 0 4px; letter-spacing: 4px; text-transform: uppercase; }
-    .header p { color: #c8a0a0; font-size: 11px; margin: 0; letter-spacing: 3px; text-transform: uppercase; }
+    .header { background: #fbecef; padding: 32px 40px; text-align: center; border-bottom: 3px solid #c8213f; }
+    .header img { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 14px; }
+    .header h1 { color: #231f20; font-family: Georgia, serif; font-size: 28px; font-weight: normal; margin: 0 0 6px; letter-spacing: 6px; text-transform: uppercase; }
+    .header p { color: #c8213f; font-size: 11px; margin: 0; letter-spacing: 3px; text-transform: uppercase; }
     .content { padding: 40px; }
     .content h2 { color: #0a0a0a; font-size: 22px; margin-bottom: 16px; }
     .content p { color: #555; line-height: 1.6; margin-bottom: 16px; }
-    .btn { display: inline-block; background: linear-gradient(135deg, #C9956A, #b8845a); color: #fff !important; text-decoration: none; padding: 14px 36px; border-radius: 6px; font-weight: 600; font-size: 15px; margin: 16px 0; letter-spacing: 0.5px; }
-    .divider { height: 1px; background: linear-gradient(90deg, transparent, #C9956A55, transparent); margin: 24px 0; }
-    .footer { background: #faf7f5; padding: 24px 40px; text-align: center; border-top: 1px solid #f0e8e0; }
+    .btn { display: inline-block; background: #c8213f; color: #fff !important; text-decoration: none; padding: 14px 36px; border-radius: 6px; font-weight: 600; font-size: 15px; margin: 16px 0; letter-spacing: 0.5px; }
+    .divider { height: 1px; background: linear-gradient(90deg, transparent, #c8213f55, transparent); margin: 24px 0; }
+    .footer { background: #fbecef; padding: 24px 40px; text-align: center; border-top: 1px solid #f6d9de; }
     .footer p { color: #999; font-size: 12px; margin: 4px 0; }
-    .footer a { color: #C9956A; text-decoration: none; }
+    .footer a { color: #c8213f; text-decoration: none; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <img src="https://ayezacosmetics.store/icon.png" alt="AYEZA COSMETICS Logo">
-      <h1>AYEZA COSMETICS</h1>
-      <p>Luxury Beauty, Redefined</p>
+      <img src="https://ayezacosmetics.store/icon.png" alt="AZEEORA Logo">
+      <h1>AZEEORA</h1>
+      <p>Skincare made for Pakistani skin</p>
     </div>
     <div class="content">${content}</div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} AYEZA COSMETICS. All rights reserved.</p>
+      <p>© ${new Date().getFullYear()} AZEEORA. All rights reserved.</p>
       <p><a href="https://ayezacosmetics.store">ayezacosmetics.store</a></p>
     </div>
   </div>
@@ -97,7 +103,7 @@ const sendMail = async (
 
     if (resend) {
       // ── Primary: Resend API (HTTPS, no port blocking) ──────────────────
-      const fromAddress = process.env.RESEND_FROM || 'AYEZA COSMETICS <noreply@ayezacosmetics.store>';
+      const fromAddress = withBrandName(process.env.RESEND_FROM || 'noreply@ayezacosmetics.store');
       const { error } = await resend.emails.send({
         from: fromAddress,
         to: [to],
@@ -112,7 +118,7 @@ const sendMail = async (
       // ── Fallback: SMTP (for local dev) ──────────────────────────────────
       const transporter = createTransporter();
       await transporter.sendMail({
-        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        from: withBrandName(process.env.EMAIL_FROM || process.env.EMAIL_USER || ''),
         to,
         subject,
         html: baseEmailTemplate(content),
@@ -140,7 +146,7 @@ export const sendVerificationEmail = async (email: string, firstName: string, to
   const verifyUrl = `${(process.env.CLIENT_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'https://ayezacosmetics.store')}/auth/verify-email?token=${token}`;
   await sendMail(
     email,
-    'Welcome to AYEZA COSMETICS — Verify Your Email',
+    'Welcome to AZEEORA — Verify Your Email',
     `
       <h2>Welcome, ${firstName}!</h2>
       <p>Please verify your email to activate your account.</p>
@@ -155,12 +161,12 @@ export const sendVerificationEmail = async (email: string, firstName: string, to
 export const sendOtpEmail = async (email: string, firstName: string, otp: string): Promise<void> => {
   await sendMail(
     email,
-    'AYEZA COSMETICS — Your Verification Code',
+    'AZEEORA — Your Verification Code',
     `
       <h2>Verify Your Email</h2>
       <p>Hi ${firstName}, your verification code is:</p>
       <div style="text-align:center; margin: 24px 0;">
-        <span style="display:inline-block; font-size:36px; font-weight:700; letter-spacing:12px; color:#0a0a0a; background:#f5f0ed; padding:16px 32px; border-radius:12px; border:2px solid #C9956A;">${otp}</span>
+        <span style="display:inline-block; font-size:36px; font-weight:700; letter-spacing:12px; color:#0a0a0a; background:#fbecef; padding:16px 32px; border-radius:12px; border:2px solid #c8213f;">${otp}</span>
       </div>
       <p>This code expires in <strong>10 minutes</strong>.</p>
       <p style="color:#999; font-size:13px;">If you didn't create an account, you can safely ignore this email.</p>
@@ -172,13 +178,13 @@ export const sendOtpEmail = async (email: string, firstName: string, otp: string
 export const sendPasswordResetOtpEmail = async (email: string, firstName: string, otp: string): Promise<void> => {
   await sendMail(
     email,
-    'AYEZA COSMETICS — Password Reset Verification Code',
+    'AZEEORA — Password Reset Verification Code',
     `
       <h2>Reset Your Password</h2>
       <p>Hi ${firstName}, we received a password reset request for your account.</p>
       <p>Please enter the following 6-digit code to verify your request:</p>
       <div style="text-align:center; margin: 24px 0;">
-        <span style="display:inline-block; font-size:36px; font-weight:700; letter-spacing:12px; color:#0a0a0a; background:#f5f0ed; padding:16px 32px; border-radius:12px; border:2px solid #C9956A;">${otp}</span>
+        <span style="display:inline-block; font-size:36px; font-weight:700; letter-spacing:12px; color:#0a0a0a; background:#fbecef; padding:16px 32px; border-radius:12px; border:2px solid #c8213f;">${otp}</span>
       </div>
       <p>This code expires in <strong>10 minutes</strong>.</p>
       <p style="color:#999; font-size:13px;">If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
@@ -254,7 +260,7 @@ export const sendOrderConfirmationEmail = async (
 
   await sendMail(
     email,
-    `AYEZA COSMETICS — Order Confirmed #${order.orderNumber}`,
+    `AZEEORA — Order Confirmed #${order.orderNumber}`,
     `
       <h2>Thank you, ${firstName}!</h2>
       <p>Your order has been placed successfully. Here are your order details:</p>
@@ -310,7 +316,7 @@ export const sendNewOrderNotificationEmail = async (
     `New Order Received #${order.orderNumber}`,
     `
       <h2>New Order Received!</h2>
-      <p>A new order has been placed on AYEZA COSMETICS.</p>
+      <p>A new order has been placed on AZEEORA.</p>
 
       <div style="background:#faf7f5;border:1px solid #e8ddd6;border-radius:8px;padding:16px;margin:20px 0;">
         <p style="margin:0 0 8px;"><strong>Order Number:</strong> ${order.orderNumber}</p>
@@ -340,8 +346,8 @@ export const sendPaymentStatusEmail = async (
   await sendMail(
     email,
     approved
-      ? `AYEZA COSMETICS — Payment Approved #${orderNumber}`
-      : `AYEZA COSMETICS — Payment Rejected #${orderNumber}`,
+      ? `AZEEORA — Payment Approved #${orderNumber}`
+      : `AZEEORA — Payment Rejected #${orderNumber}`,
     approved
       ? `
         <h2>Payment Approved</h2>
@@ -383,7 +389,7 @@ export const sendOrderStatusEmail = async (
 
   await sendMail(
     email,
-    `AYEZA COSMETICS — ${statusLabel} #${orderNumber}`,
+    `AZEEORA — ${statusLabel} #${orderNumber}`,
     `
       <h2>${statusLabel}</h2>
       <p>Hi ${firstName}, your order <strong>${orderNumber}</strong> is now: <strong>${statusLabel}</strong>.</p>
@@ -401,7 +407,7 @@ export const sendOrderStatusEmail = async (
 export const sendWelcomeEmail = async (email: string, firstName: string): Promise<void> => {
   await sendMail(
     email,
-    'Welcome to AYEZA COSMETICS',
+    'Welcome to AZEEORA',
     `
       <h2>Welcome, ${firstName}!</h2>
       <p>Your email is verified. Explore our luxury beauty collection.</p>
@@ -456,12 +462,12 @@ export const sendAdminReplyEmail = async (
   const productUrl = `${(process.env.CLIENT_URL || process.env.CORS_ORIGIN?.split(',')[0] || 'https://ayezacosmetics.store')}/products/${productSlug}`;
   await sendMail(
     email,
-    `AYEZA COSMETICS — Admin Reply to Your Review on ${productName}`,
+    `AZEEORA — Admin Reply to Your Review on ${productName}`,
     `
       <h2>Hi ${firstName},</h2>
       <p>An admin has replied to your review on <strong>${productName}</strong>:</p>
       
-      <div style="background:#faf7f5;border-left:4px solid #C9956A;padding:16px;margin:20px 0;font-style:italic;">
+      <div style="background:#faf7f5;border-left:4px solid #c8213f;padding:16px;margin:20px 0;font-style:italic;">
         "${replyBody}"
       </div>
       
@@ -470,7 +476,7 @@ export const sendAdminReplyEmail = async (
       </p>
       
       <p style="color:#666;font-size:13px;text-align:center;margin-top:32px;">
-        Thank you for being a part of AYEZA COSMETICS!
+        Thank you for being a part of AZEEORA!
       </p>
     `
   );

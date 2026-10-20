@@ -332,7 +332,7 @@ router.post('/', optionalAuthenticate, validate(checkoutSchema), async (req: Req
   }
 
   try {
-    await sendNewOrderNotificationEmail('ayezacosmtics@gmail.com', order);
+    await sendNewOrderNotificationEmail('azeeoracosmetics@gmail.com', order);
   } catch {
     // ignore
   }

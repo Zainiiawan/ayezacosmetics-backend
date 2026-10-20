@@ -158,7 +158,7 @@ router.post(
 
     return res.json({
       success: true,
-      message: 'Email verified successfully. Welcome to AYEZA COSMETICS!',
+      message: 'Email verified successfully. Welcome to AZEEORA!',
       data: { user: user.toJSON(), tokens },
     });
   }

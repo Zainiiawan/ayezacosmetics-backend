@@ -35,6 +35,7 @@ import notificationRoutes from './routes/notification.routes';
 import contactRoutes from './routes/contact.routes';
 import shippingRoutes from './routes/shipping.routes';
 import settingsRoutes from './routes/settings.routes';
+import slideRoutes from './routes/slide.routes';
 
 const app = express();
 
@@ -152,6 +153,7 @@ app.use(`${API_PREFIX}/notifications`, notificationRoutes);
 app.use(`${API_PREFIX}/contact`, contactRoutes);
 app.use(`${API_PREFIX}/shipping`, shippingRoutes);
 app.use(`${API_PREFIX}/settings`, settingsRoutes);
+app.use(`${API_PREFIX}/slides`, slideRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

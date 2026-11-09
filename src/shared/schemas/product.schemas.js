@@ -50,6 +50,7 @@ exports.updateProductSchema = exports.createProductSchema.partial();
 exports.createCategorySchema = zod_1.z.object({
     name: zod_1.z.string().min(1, 'Category name is required').max(100),
     description: zod_1.z.string().max(500).optional(),
+    seoContent: zod_1.z.string().max(20000).optional(),
     image: productImageSchema.optional(),
     isActive: zod_1.z.boolean().optional().default(true),
 });

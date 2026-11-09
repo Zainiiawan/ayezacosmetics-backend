@@ -67,6 +67,8 @@ export const updateProductSchema = createProductSchema.partial();
 export const createCategorySchema = z.object({
   name: z.string().min(1, 'Category name is required').max(100),
   description: z.string().max(500).optional(),
+  // long article shown on the category page; an empty string clears it
+  seoContent: z.string().max(20000).optional(),
   image: productImageSchema.optional(),
   isActive: z.boolean().optional().default(true),
 });

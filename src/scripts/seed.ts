@@ -73,7 +73,7 @@ async function seed() {
   });
 
   const brands = await Brand.insertMany([
-    { name: 'Ayeza Luxe', slug: 'ayeza-luxe', description: 'Signature house brand', isActive: true, logo: { url: PLACEHOLDER, publicId: 'demo' } },
+    { name: 'Azeeora Luxe', slug: 'azeeora-luxe', description: 'Signature house brand', isActive: true, logo: { url: PLACEHOLDER, publicId: 'demo' } },
     { name: 'Rose Atelier', slug: 'rose-atelier', description: 'Rose-gold inspired beauty', isActive: true, logo: { url: PLACEHOLDER, publicId: 'demo' } },
     { name: 'Noir Beauty', slug: 'noir-beauty', description: 'Bold evening looks', isActive: true, logo: { url: PLACEHOLDER, publicId: 'demo' } },
   ]);

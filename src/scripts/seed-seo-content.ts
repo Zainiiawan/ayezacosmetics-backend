@@ -10,7 +10,7 @@ const SEED_DATA = {
     <h2>The Ultimate Guide to Whitening Creams: Brighten, Nourish, and Glow</h2>
     <p>Welcome to our comprehensive collection of premium whitening creams designed for the vibrant and diverse climates of Pakistan. Achieving a radiant, even-toned complexion has never been easier or more luxurious. Our meticulously formulated skin-lightening and brightening creams are crafted with dermatologically tested ingredients to ensure safe and effective results.</p>
     
-    <h3>Why Choose Ayeza Cosmetics Whitening Creams?</h3>
+    <h3>Why Choose Azeeora Cosmetics Whitening Creams?</h3>
     <p>In a market flooded with skincare products, our whitening creams stand out due to their commitment to quality, efficacy, and skin health. We understand that Pakistani skin faces unique challenges, including intense sun exposure, pollution, and varying humidity levels. Our creams do more than just lighten; they deeply nourish, hydrate, and protect your skin barrier.</p>
     
     <ul>
@@ -36,10 +36,10 @@ const SEED_DATA = {
     <h3>Understanding Hyperpigmentation in South Asian Skin</h3>
     <p>South Asian skin is naturally richer in melanin, which provides excellent protection against the sun but also makes it more prone to hyperpigmentation and melasma. Scars from acne or insect bites can quickly turn into dark spots that take months to fade. Our whitening creams are specifically formulated to address these stubborn spots gently, respecting the delicate nature of melanin-rich skin.</p>
     
-    <h3>The Ayeza Promise: Beauty Without Compromise</h3>
+    <h3>The Azeeora Promise: Beauty Without Compromise</h3>
     <p>We believe that beauty should never come at the cost of your health. That's why every product in our whitening collection undergoes rigorous testing to ensure it meets the highest safety standards. We are committed to providing you with skincare solutions that deliver visible results while nurturing your skin's long-term health.</p>
     
-    <p>Explore our range of whitening creams today and embark on a journey to your most radiant, confident self. Because at Ayeza Cosmetics, your glow is our passion.</p>
+    <p>Explore our range of whitening creams today and embark on a journey to your most radiant, confident self. Because at Azeeora Cosmetics, your glow is our passion.</p>
   `,
   whiteningCreamProd: `
     <h2>Experience the Magic: Advanced Glow Whitening Cream</h2>
@@ -127,8 +127,8 @@ const run = async () => {
         `;
         prod.seo = {
           ...prod.seo,
-          metaTitle: `${prod.name} | Premium Quality | Ayeza Cosmetics`,
-          metaDescription: `Discover the incredible benefits of ${prod.name}. Shop the best beauty and skincare products online at Ayeza Cosmetics.`
+          metaTitle: `${prod.name} | Premium Quality | Azeeora Cosmetics`,
+          metaDescription: `Discover the incredible benefits of ${prod.name}. Shop the best beauty and skincare products online at Azeeora Cosmetics.`
         };
         await prod.save();
         console.log(`Updated Product: ${prod.name}`);

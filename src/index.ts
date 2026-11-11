@@ -124,6 +124,11 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: 'AYEZA COSMETICS API',
 }));
 
+app.get('/robots.txt', (_req, res) => {
+  res.type('text/plain');
+  res.send('User-agent: *\nAllow: /\n');
+});
+
 app.get('/health', (_req, res) => {
   res.status(200).json({
     status: 'ok',

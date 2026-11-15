@@ -120,8 +120,8 @@ const productSchema = new Schema<IProductDocument>(
     reviewCount: { type: Number, default: 0 },
     soldCount: { type: Number, default: 0 },
     seo: {
-      metaTitle: { type: String, maxlength: 60 },
-      metaDescription: { type: String, maxlength: 160 },
+      metaTitle: { type: String, maxlength: 200 },
+      metaDescription: { type: String, maxlength: 500 },
       metaKeywords: [String],
       canonicalUrl: String,
     },

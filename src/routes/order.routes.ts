@@ -294,7 +294,7 @@ router.post('/', optionalAuthenticate, validate(checkoutSchema), async (req: Req
       product.stock -= item.quantity;
     }
     product.soldCount = (product.soldCount ?? 0) + item.quantity;
-    await product.save();
+    await product.save({ validateModifiedOnly: true });
   }
 
   if (couponCode && coupon) {

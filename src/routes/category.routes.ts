@@ -44,7 +44,14 @@ router.get('/', async (_req: Request, res: Response) => {
 
 router.get('/:slug', async (req: Request, res: Response) => {
   const { slug } = req.params;
-  const category = await Category.findOne({ slug, isActive: true });
+  const category = await Category.findOne({
+    $or: [
+      { slug },
+      ...(slug === 'skin-care' ? [{ slug: 'whitening-cream' }] : []),
+      ...(slug === 'whitening-cream' ? [{ slug: 'skin-care' }] : []),
+    ],
+    isActive: true,
+  });
   if (!category) throw new NotFoundError('Category');
 
   const subcategories = await Subcategory.find({ category: category._id, isActive: true }).sort({ order: 1, createdAt: -1 });
